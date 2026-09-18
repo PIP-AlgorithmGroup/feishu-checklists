@@ -7,6 +7,7 @@
   const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
   const MAX_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024;
   const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
+  const MAX_ITEM_TEXT_LENGTH = 500;
 
   function formatFileSize(bytes) {
     return bytes >= 1024 * 1024
@@ -772,7 +773,7 @@
         input.className = "item-text";
         input.rows = 1;
         input.value = item.text;
-        input.maxLength = 200;
+        input.maxLength = MAX_ITEM_TEXT_LENGTH;
         input.placeholder = "输入事项";
         input.setAttribute("aria-label", `事项 ${index + 1}`);
         const resizeInput = () => {
@@ -819,12 +820,15 @@
           const cursor = input.selectionStart;
           const prefix = item.text.slice(0, cursor);
           const suffix = item.text.slice(input.selectionEnd);
-          item.text = `${prefix}${lines[0]}`.slice(0, 200);
+          item.text = `${prefix}${lines[0]}`.slice(0, MAX_ITEM_TEXT_LENGTH);
           let insertionIndex = index;
           let lastId = item.id;
           lines.slice(1).forEach((line, lineIndex) => {
             const text = lineIndex === lines.length - 2 ? `${line}${suffix}` : line;
-            const insertedId = addItemAfter(insertionIndex, text.slice(0, 200));
+            const insertedId = addItemAfter(
+              insertionIndex,
+              text.slice(0, MAX_ITEM_TEXT_LENGTH),
+            );
             if (insertedId) {
               insertionIndex += 1;
               lastId = insertedId;
@@ -1121,6 +1125,7 @@
     getSignableUrl,
     getMediaUploadBlockReason,
     moveItem,
+    MAX_ITEM_TEXT_LENGTH,
     parseBulkItems,
     parseTriggerCode,
     resolveCloudbaseAuth,

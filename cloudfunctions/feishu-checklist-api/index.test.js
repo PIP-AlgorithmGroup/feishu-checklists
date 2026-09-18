@@ -54,6 +54,25 @@ test("validates and normalizes a checklist", () => {
   );
 });
 
+test("accepts item text up to five hundred characters", () => {
+  const checklist = parseChecklist({
+    id: "checklist-1",
+    title: "门店检查",
+    items: [{ id: "item-1", text: "事项".repeat(250) }],
+  });
+
+  assert.equal(checklist.items[0].text.length, 500);
+  assert.throws(
+    () =>
+      parseChecklist({
+        id: "checklist-1",
+        title: "门店检查",
+        items: [{ id: "item-1", text: `${"事项".repeat(250)}超` }],
+      }),
+    /1-500 个字符/,
+  );
+});
+
 test("rejects duplicate item identifiers", () => {
   assert.throws(
     () =>

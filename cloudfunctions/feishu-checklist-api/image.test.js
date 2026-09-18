@@ -107,6 +107,22 @@ test("accepts only media in this environment checklist directory", () => {
     },
   );
 
+  assert.deepEqual(
+    parseStoredMediaInput(
+      {
+        fileId: "cloud://env-1.bucket/checklist-media/file.png",
+        downloadUrl:
+          "https://env-1-1300000000.tcloudbaseapp.com/checklist-media/file.png?sign=ok",
+      },
+      "env-1",
+    ),
+    {
+      fileId: "cloud://env-1.bucket/checklist-media/file.png",
+      downloadUrl:
+        "https://env-1-1300000000.tcloudbaseapp.com/checklist-media/file.png?sign=ok",
+    },
+  );
+
   assert.throws(
     () =>
       parseStoredMediaInput(
@@ -160,6 +176,25 @@ test("accepts only media in this environment checklist directory", () => {
       ),
     /文件不匹配/,
   );
+
+  for (const host of [
+    "other-env.tcb.qcloud.la",
+    "env-1-attacker.tcloudbaseapp.com",
+    "attacker.tcloudbaseapp.com",
+    "attacker.myqcloud.com",
+  ]) {
+    assert.throws(
+      () =>
+        parseStoredMediaInput(
+          {
+            fileId: "cloud://env-1.bucket/checklist-media/file.png",
+            downloadUrl: `https://${host}/checklist-media/file.png?sign=ok`,
+          },
+          "env-1",
+        ),
+      /下载地址无效/,
+    );
+  }
 });
 
 test("downloads CloudBase media with an explicit size limit", async () => {

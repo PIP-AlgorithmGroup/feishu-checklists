@@ -1,7 +1,19 @@
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
-const STORAGE_HOST_SUFFIXES = ["tcb.qcloud.la", "tcloudbaseapp.com", "myqcloud.com"];
 let tokenCache = { value: "", expiresAt: 0 };
+
+function isCloudbaseStorageHost(hostname, envId) {
+  if (hostname === `${envId}.api.tcloudbasegateway.com`) return true;
+
+  const escapedEnvId = String(envId).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const legacySuffixes = ["tcb.qcloud.la", "tcloudbaseapp.com", "myqcloud.com"];
+  return legacySuffixes.some((suffix) =>
+    new RegExp(
+      `^${escapedEnvId}(?:-\\d+)?(?:\\.[a-z0-9-]+)*\\.${suffix.replaceAll(".", "\\.")}$`,
+      "i",
+    ).test(hostname),
+  );
+}
 
 function getUploadErrorMessage(payload, status, mediaName) {
   const message = payload?.msg || String(status);
@@ -88,10 +100,7 @@ function parseStoredMediaInput(input, envId) {
     parsedUrl.protocol === "https:" &&
     !parsedUrl.username &&
     !parsedUrl.password &&
-    (parsedUrl.hostname === `${envId}.api.tcloudbasegateway.com` ||
-      STORAGE_HOST_SUFFIXES.some(
-        (suffix) => parsedUrl.hostname === suffix || parsedUrl.hostname.endsWith(`.${suffix}`),
-      ));
+    isCloudbaseStorageHost(parsedUrl.hostname, envId);
   if (!allowedHost || !parsedUrl.pathname.includes("/checklist-media/")) {
     throw new Error("CloudBase 媒体下载地址无效");
   }
@@ -213,6 +222,7 @@ async function uploadMedia(input, credentials) {
 module.exports = {
   downloadStoredMedia,
   getUploadErrorMessage,
+  isCloudbaseStorageHost,
   parseImageInput,
   parseStoredMediaInput,
   parseVideoInput,

@@ -104,6 +104,10 @@ test("uses Enter for a newline and Shift+Enter for a new item", () => {
   assert.equal(shouldCreateNewItem({ key: "Enter", shiftKey: true }), true);
 });
 
+test("exposes a five hundred character item limit", () => {
+  assert.equal(require("../app.js").MAX_ITEM_TEXT_LENGTH, 500);
+});
+
 test("blocks media uploads until the Feishu session is authenticated", () => {
   assert.equal(
     getMediaUploadBlockReason(false, ""),
@@ -351,7 +355,7 @@ test("configures the private checklist media bucket", () => {
   assert.match(html, /cloudbaseBucket:\s*"checklist-media"/);
   assert.match(html, /cloudbaseAccessKey:\s*"eyJ[^\"]+"/);
   assert.match(html, /cloudbase-js-sdk\/3\.8\.2\/cloudbase\.full\.js/);
-  assert.match(html, /app\.js\?v=20260918-27/);
+  assert.match(html, /app\.js\?v=20260918-28/);
 });
 
 test("formats uploaded image dimensions and file size", () => {

@@ -18,7 +18,7 @@ function parseChecklist(input) {
     const text = typeof item?.text === "string" ? item.text.trim() : "";
     if (!itemId || itemId.length > 100) throw new Error("事项标识无效");
     if (ids.has(itemId)) throw new Error("事项标识重复");
-    if (!text || text.length > 200) throw new Error("事项内容长度应为 1-200 个字符");
+    if (!text || text.length > 500) throw new Error("事项内容长度应为 1-500 个字符");
     ids.add(itemId);
     const images = Array.isArray(item.images) ? item.images : [];
     if (images.length > 3) throw new Error("每个事项最多添加 3 张图片");
