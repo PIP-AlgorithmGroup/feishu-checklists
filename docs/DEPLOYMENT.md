@@ -16,7 +16,7 @@
 - 静态域名：`https://feishu-checklist-d4ejfqy436026fb-1300423603.tcloudbaseapp.com`
 - 私有桶：`checklist-media`
 
-迁移到其他环境时，需要同步修改 `index.html` 的公开配置、`feishu-sign/index.js` 的 `ALLOWED_ORIGIN`，并为 `feishu-checklist-api` 设置 `FRONTEND_ORIGIN`。
+迁移到其他环境时，需要同步修改 `index.html` 的公开配置，并为 `feishu-sign` 和 `feishu-checklist-api` 设置相同的 `FRONTEND_ORIGINS`。
 
 ## 2. 数据库
 
@@ -73,6 +73,7 @@ dist/feishu-card-callback.zip
 - 建议超时：10 秒
 - 建议内存：256 MB
 - 环境变量：`FEISHU_APP_ID`、`FEISHU_APP_SECRET`
+- `FRONTEND_ORIGINS`：允许申请 JSAPI 签名的 HTTPS 页面 origin，多个以英文逗号分隔，不带结尾 `/`
 
 ### feishu-checklist-api
 
@@ -84,10 +85,18 @@ dist/feishu-card-callback.zip
   - `FEISHU_APP_ID`
   - `FEISHU_APP_SECRET`
   - `CLOUDBASE_ENV_ID`
-  - `FRONTEND_ORIGIN`：静态网站 HTTPS origin，不带结尾 `/`
+  - `FRONTEND_ORIGINS`：与 `feishu-sign` 相同的 HTTPS origin 列表，多个以英文逗号分隔，不带结尾 `/`
   - `CLOUDBASE_APIKEY`：优先使用 CloudBase 官方注入值；代码仅为旧环境兼容 `CLOUDBASE_API_KEY`
 
 这个函数需要下载媒体并上传飞书。3 秒配置会在日志中出现 `Invoking task timed out after 3 seconds`，手机照片通常必定失败。
+
+切换页面域名时，两个函数可同时配置旧入口、测试入口和正式入口，例如：
+
+```text
+FRONTEND_ORIGINS=https://feishu-checklist-d4ejfqy436026fb-1300423603.tcloudbaseapp.com,https://feishu-checklists.pages.dev,https://pip-robomaster.com.cn
+```
+
+两个函数仍兼容单域名的 `FRONTEND_ORIGIN`；若同时设置，以 `FRONTEND_ORIGINS` 为准。未配置任何前端来源时，函数不会默认信任旧域名。新页面域名还需加入 CloudBase Web 安全域名，并在飞书应用中配置对应网页入口和可信域名。
 
 ### feishu-card-callback
 

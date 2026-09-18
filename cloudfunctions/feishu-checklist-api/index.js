@@ -2,6 +2,21 @@ function getCloudBaseApiKey(env = process.env) {
   return env.CLOUDBASE_APIKEY || env.CLOUDBASE_API_KEY;
 }
 
+function getAllowedOrigins() {
+  const value = process.env.FRONTEND_ORIGINS || process.env.FRONTEND_ORIGIN || "";
+  const origins = value.split(",").map((origin) => origin.trim()).filter(Boolean);
+  if (!origins.length) throw new Error("云函数缺少 FRONTEND_ORIGINS 环境变量");
+  if (origins.some((origin) => {
+    try {
+      const url = new URL(origin);
+      return url.protocol !== "https:" || url.origin !== origin;
+    } catch {
+      return true;
+    }
+  })) throw new Error("FRONTEND_ORIGINS 必须是 HTTPS origin，且不带路径或结尾斜杠");
+  return origins;
+}
+
 function parseChecklist(input) {
   if (!input || typeof input !== "object") throw new Error("请求缺少清单数据");
   const id = typeof input.id === "string" ? input.id.trim() : "";
@@ -90,23 +105,29 @@ function response(statusCode, body, origin) {
     headers: {
       "access-control-allow-headers": "authorization, content-type",
       "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-origin": origin,
+      ...(origin ? { "access-control-allow-origin": origin } : {}),
       "content-type": "application/json; charset=utf-8",
+      vary: "Origin",
     },
     body: JSON.stringify(body),
   };
 }
 
 exports.main = async (event) => {
-  const allowedOrigin =
-    process.env.FRONTEND_ORIGIN ||
-    "https://feishu-checklist-d4ejfqy436026fb-1300423603.tcloudbaseapp.com";
-  const origin = event.headers?.origin || event.headers?.Origin || "";
-  if (origin && origin !== allowedOrigin) {
-    return response(403, { code: 403, message: "请求来源不允许" }, allowedOrigin);
+  let allowedOrigins;
+  try {
+    allowedOrigins = getAllowedOrigins();
+  } catch (error) {
+    console.error("feishu-checklist-api failed:", error.message);
+    return response(500, { code: 500, message: error.message });
   }
+  const origin = event.headers?.origin || event.headers?.Origin || "";
+  if (origin && !allowedOrigins.includes(origin)) {
+    return response(403, { code: 403, message: "请求来源不允许" });
+  }
+  const responseOrigin = origin || allowedOrigins[0];
   if (event.httpMethod === "OPTIONS" || event.requestContext?.http?.method === "OPTIONS") {
-    return response(204, {}, allowedOrigin);
+    return response(204, {}, responseOrigin);
   }
 
   try {
@@ -124,7 +145,7 @@ exports.main = async (event) => {
         appId,
         appSecret,
       });
-      return response(200, { code: 0, data: session }, allowedOrigin);
+      return response(200, { code: 0, data: session }, responseOrigin);
     }
 
     const authorization =
@@ -137,14 +158,14 @@ exports.main = async (event) => {
         appSecret,
         envId,
       });
-      return response(201, { code: 0, data: uploaded }, allowedOrigin);
+      return response(201, { code: 0, data: uploaded }, responseOrigin);
     }
     const checklist = parseChecklist(body);
     await createRepository({ envId, apiKey }).create(checklist);
-    return response(201, { code: 0, data: { id: checklist.id } }, allowedOrigin);
+    return response(201, { code: 0, data: { id: checklist.id } }, responseOrigin);
   } catch (error) {
     console.error("feishu-checklist-api failed:", error.message);
-    return response(400, { code: 400, message: error.message }, allowedOrigin);
+    return response(400, { code: 400, message: error.message }, responseOrigin);
   }
 };
 
