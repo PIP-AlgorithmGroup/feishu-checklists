@@ -391,7 +391,7 @@ test("configures the private checklist media bucket", () => {
   assert.match(html, /cloudbaseBucket:\s*"checklist-media"/);
   assert.match(html, /cloudbaseAccessKey:\s*"eyJ[^\"]+"/);
   assert.match(html, /cloudbase-js-sdk\/3\.8\.2\/cloudbase\.full\.js/);
-  assert.match(html, /app\.js\?v=20260918-29/);
+  assert.match(html, /app\.js\?v=20260918-30/);
 });
 
 test("formats uploaded image dimensions and file size", () => {
@@ -429,6 +429,9 @@ test("renders uploaded images after their checklist item", () => {
 
   assert.equal(card.body.elements[2].tag, "img");
   assert.equal(card.body.elements[2].img_key, "img_v3_abc");
+  assert.equal(card.body.elements[2].mode, "crop_center");
+  assert.equal(card.body.elements[2].compact_width, true);
+  assert.equal(card.body.elements[2].preview, true);
 });
 
 test("extracts image and MP4 files from clipboard data", () => {
