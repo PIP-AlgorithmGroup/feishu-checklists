@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>检查清单</title>
+    <style>
+      :root {
+        color: #1f2329;
+        background: #f7f8fa;
+        font-family:
+          Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        min-width: 280px;
+        min-height: 100vh;
+        margin: 0;
+        padding: 0 14px 92px;
+      }
+      main { width: 100%; margin: 0 auto; }
+      .app-header {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: grid;
+        grid-template-columns: 32px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        min-height: 58px;
+        margin: 0 -14px;
+        padding: 10px 14px;
+        border-bottom: 1px solid #e5e6eb;
+        background: rgba(255, 255, 255, .96);
+      }
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 7px;
+        background: #3370ff;
+        color: #fff;
+        font-size: 18px;
+        font-weight: 700;
+      }
+      .brand-copy { min-width: 0; }
+      .brand-name { display: block; font-size: 14px; font-weight: 700; }
+      .item-count {
+        padding: 3px 7px;
+        border-radius: 4px;
+        background: #f2f3f5;
+        color: #646a73;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .editor {
+        min-height: calc(100vh - 150px);
+        margin: 12px -6px 0;
+        padding: 0 6px 18px;
+        background: #fff;
+      }
+      input, textarea {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        color: #1f2329;
+        font: inherit;
+        outline: none;
+      }
+      #checklist-title {
+        min-height: 54px;
+        padding: 2px 6px 0;
+        border-bottom: 1px solid #e5e6eb;
+        font-size: 25px;
+        font-weight: 700;
+      }
+      #checklist-title::placeholder, .item-text::placeholder { color: #bbbfc4; }
+      #item-list { display: grid; gap: 2px; margin-top: 6px; }
+      .item-block {
+        display: grid;
+        gap: 5px;
+        margin: 0 -6px;
+        padding: 8px 6px 9px;
+        border-left: 2px solid transparent;
+        border-bottom: 1px solid #f2f3f5;
+        transition: background-color .15s ease, border-color .15s ease;
+      }
+      .item-block:hover { background: #fafbfc; }
+      .item-block:focus-within { border-left-color: #3370ff; background: #f7f9ff; }
+      .item-row { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; align-items: start; }
+      .item-marker { width: 16px; height: 16px; margin-top: 6px; border: 1.5px solid #8f959e; border-radius: 3px; background: #fff; }
+      .item-block:focus-within .item-marker { border-color: #3370ff; box-shadow: 0 0 0 2px #e8f0ff; }
+      .item-text { min-height: 30px; padding: 2px 0; resize: none; line-height: 1.6; overflow: hidden; }
+      .item-tools { display: flex; gap: 2px; padding-left: 26px; opacity: 0; pointer-events: none; }
+      .item-block:focus-within .item-tools, .item-block:hover .item-tools { opacity: 1; pointer-events: auto; }
+      .icon-button { width: 30px; min-height: 28px; padding: 0; border: 1px solid transparent; background: transparent; color: #646a73; }
+      .icon-button:hover { border-color: #dee0e3; background: #fff; }
+      .icon-button:disabled { color: #d0d3d6; background: transparent; }
+      .icon-button.danger { color: #d83931; }
+      .media-button {
+        width: auto;
+        min-height: 28px;
+        margin-right: auto;
+        padding: 0 8px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: #245bdb;
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .media-button:hover { border-color: #c9d8ff; background: #edf2ff; }
+      .media-button:disabled { color: #bbbfc4; background: transparent; }
+      .upload-list { display: grid; gap: 6px; padding-left: 26px; }
+      .upload-row {
+        position: relative;
+        min-width: 0;
+        padding: 7px 30px 7px 9px;
+        border: 1px solid #dee0e3;
+        border-radius: 4px;
+        background: #fafbfc;
+      }
+      .upload-meta { display: flex; gap: 8px; justify-content: space-between; min-width: 0; font-size: 11px; }
+      .upload-name { overflow: hidden; color: #1f2329; text-overflow: ellipsis; white-space: nowrap; }
+      .upload-state { flex: 0 0 auto; color: #646a73; }
+      .upload-progress { height: 3px; margin-top: 6px; overflow: hidden; border-radius: 2px; background: #e5e6eb; }
+      .upload-progress-bar { display: block; width: 0; height: 100%; background: #3370ff; transition: width .15s ease; }
+      .upload-done .upload-progress-bar { background: #34a853; }
+      .upload-error { border-color: #f5c0bd; background: #fff5f5; }
+      .upload-error .upload-progress-bar { background: #d83931; }
+      .upload-error .upload-meta { flex-wrap: wrap; }
+      .upload-error .upload-state {
+        flex: 1 0 100%;
+        color: #d83931;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+        white-space: normal;
+      }
+      .upload-dismiss {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        width: 24px;
+        min-height: 24px;
+        padding: 0;
+        background: transparent;
+        color: #646a73;
+        font-size: 16px;
+      }
+      .thumbnails { display: grid; gap: 8px; padding-left: 26px; }
+      .thumbnail { position: relative; width: 100%; }
+      .thumbnail img, .thumbnail video { display: block; width: 100%; max-height: 320px; object-fit: contain; border-radius: 4px; background: #111; }
+      .media-meta {
+        display: block;
+        padding: 6px 2px 0;
+        color: #646a73;
+        font-size: 11px;
+        line-height: 1.4;
+      }
+      .thumbnail button {
+        position: absolute; top: 6px; right: 6px; width: 24px; min-height: 24px; padding: 0;
+        border-radius: 4px; background: rgba(0, 0, 0, .65); font-size: 14px;
+      }
+      #add-item { width: auto; min-height: 34px; margin: 10px 0 0 20px; padding: 0 9px; background: transparent; color: #245bdb; font-weight: 500; }
+      #add-item:hover { background: #edf2ff; }
+      #status {
+        display: block;
+        margin: 1px 0 0;
+        color: #8f959e;
+        font-size: 11px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #status[data-state="ready"] { color: #208b4e; }
+      #status[data-state="error"] { color: #d83931; }
+      #detail {
+        min-height: 0;
+        margin: 10px 0 0;
+        padding: 8px 10px;
+        border-left: 3px solid #f0a000;
+        border-radius: 4px;
+        background: #fff8e6;
+        color: #646a73;
+        font-size: 12px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+      #detail[data-state="error"] { border-left-color: #d83931; background: #fff0f0; color: #a82424; }
+      #detail[hidden] { display: none; }
+      button {
+        width: 100%;
+        min-height: 40px;
+        border: 0;
+        border-radius: 6px;
+        background: #3370ff;
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:disabled { background: #bbbfc4; cursor: not-allowed; }
+      .send-bar { position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; padding: 10px 14px; background: rgba(255,255,255,.97); border-top: 1px solid #e5e6eb; box-shadow: 0 -4px 12px rgba(31,35,41,.04); }
+      #send-card { max-width: 720px; margin: 0 auto; display: block; }
+      @media (hover: none) {
+        .item-tools { opacity: 1; pointer-events: auto; }
+      }
+      @media (max-width: 340px) {
+        body { padding-right: 10px; padding-left: 10px; }
+        .app-header { margin-right: -10px; margin-left: -10px; padding-right: 10px; padding-left: 10px; }
+        #checklist-title { font-size: 22px; }
+        .send-bar { padding-right: 10px; padding-left: 10px; }
+      }
+    </style>
+    <script>
+      window.FEISHU_CHECKLIST_CONFIG = {
+        cloudbaseEnvId: "feishu-checklist-d4ejfqy436026fb",
+        cloudbaseRegion: "ap-shanghai",
+        cloudbaseAccessKey: "eyJhbGciOiJSUzI1NiIsImtpZCI6ImE4ZjA0MGZkLTQzZGQtNGIwYi1iYzAxLTAzNmNiM2JjZWFkZSJ9.eyJpc3MiOiJodHRwczovL2ZlaXNodS1jaGVja2xpc3QtZDRlamZxeTQzNjAyNmZiLmFwLXNoYW5naGFpLnRjYi1hcGkudGVuY2VudGNsb3VkYXBpLmNvbSIsInN1YiI6ImFub24iLCJhdWQiOiJmZWlzaHUtaGVja2xpc3QtZDRlamZxeTQzNjAyNmZiIiwiZXhwIjo0MDkzMzM4NzUzLCJpYXQiOjE3ODk2NTU1NTMsIm5vbmNlIjoibnlsMmVLSGJSUmlOVk0zQ21XaHNEdyIsImF0X2hhc2giOiJueWwyZUtIYlJSaU5WTTNDbVdoc0R3IiwibmFtZSI6IkFub255bW91cyIsInNjb3BlIjoiYW5vbnltb3VzIiwicHJvamVjdF9pZCI6ImZlaXNodS1jaGVja2xpc3QtZDRlamZxeTQzNjAyNmZiIiwibWV0YSI6eyJwbGF0Zm9ybSI6IlB1Ymxpc2hhYmxlS2V5In0sInJvbGUiOiJhbm9uIiwiaXNfYW5vbnltb3VzIjp0cnVlLCJhcHBfbWV0YWRhdGEiOnsicHJvdmlkZXIiOiJhbm9ueW1vdXMiLCJwcm92aWRlcnMiOlsiYW5vbnltb3VzIl19LCJ1c2VyX21ldGFkYXRhIjp7Im5hbWUiOiJBbm9ueW1vdXMifSwidXNlcl90eXBlIjoiIiwiY2xpZW50X3R5cGUiOiJjbGllbnRfdXNlciIsImlzX3N5c3RlbV9hZG1pbiI6ZmFsc2V9.UAjlLB5y5HLqkFUyBpyCdGrqOahcoD8c6O0nOYEEoScIgep6ToFZbWHZ-4mdif7QWBQZsRyyIMO2wWIipjyp8pIFwr3IJAcISaXBA1y-F1IvYXCHYU3aPThLJJv-CIXqYMJkwwV5-ymcgjE8ijEulaxbyR9MhHevJvwIZRwySTEjovSAg_f9GV6QjLLcZPlpk9mYcgWeCukcqmYngbJl3gg9DlTeTQObcjmNSvembG-lT2EBuILL1KmOXij_rNq-KubbWEez1qHxdQfV-if0ZSJpEJrD_E1uu86zMTE127Sohm1KtYNVv3dZz6Y9h6XBgMcHiMJFjxesMzF3eSyq4A",
+        cloudbaseBucket: "checklist-media",
+        signEndpoint:
+          "https://feishu-checklist-d4ejfqy436026fb-1300423603.ap-shanghai.app.tcloudbase.com/feishu-sign",
+        apiEndpoint:
+          "https://feishu-checklist-d4ejfqy436026fb-1300423603.ap-shanghai.app.tcloudbase.com/feishu-checklist-api",
+      };
+    </script>
+    <script src="https://static.cloudbase.net/cloudbase-js-sdk/3.8.2/cloudbase.full.js"></script>
+    <script src="https://lf1-cdn-tos.bytegoofy.com/goofy/lark/op/h5-js-sdk-1.5.16.js"></script>
+    <script src="./app.js?v=20260918-27" defer></script>
+  </head>
+  <body>
+    <main>
+      <header class="app-header">
+        <span class="brand-mark" aria-hidden="true">✓</span>
+        <div class="brand-copy">
+          <strong class="brand-name">检查清单</strong>
+          <span id="status" role="status" data-state="waiting">正在连接当前会话</span>
+        </div>
+        <span id="item-count" class="item-count">1 项</span>
+      </header>
+      <p id="detail" hidden></p>
+      <section class="editor" aria-label="清单编辑器">
+        <input id="checklist-title" maxlength="80" value="检查清单" placeholder="清单标题" aria-label="清单标题" />
+        <div id="item-list"></div>
+        <button id="add-item" type="button">+ 新事项</button>
+      </section>
+      <div class="send-bar"><button id="send-card" type="button" disabled>发送清单</button></div>
+    </main>
+  </body>
+</html>
