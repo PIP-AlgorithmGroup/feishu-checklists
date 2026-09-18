@@ -74,8 +74,10 @@ test("keeps checklist and media contracts intact from creation through callback 
 
   assert.equal(result.card.data.body.elements[1].checked, true);
   assert.equal(result.card.data.body.elements[2].img_key, "img_v3_photo");
-  assert.equal(result.card.data.body.elements[2].mode, "crop_center");
-  assert.equal(result.card.data.body.elements[2].compact_width, true);
+  assert.equal(result.card.data.body.elements[2].scale_type, "crop_center");
+  assert.equal(result.card.data.body.elements[2].size, "medium");
   assert.equal(result.card.data.body.elements[2].preview, true);
+  assert.equal(result.card.data.body.elements[2].mode, undefined);
+  assert.equal(result.card.data.body.elements[2].compact_width, undefined);
   assert.equal(result.card.data.body.elements[3].file_key, "file_v3_walkthrough");
 });

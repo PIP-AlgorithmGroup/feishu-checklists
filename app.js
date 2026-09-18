@@ -288,8 +288,8 @@
               tag: "img",
               img_key: image.imageKey,
               alt: { tag: "plain_text", content: item.text },
-              mode: "crop_center",
-              compact_width: true,
+              scale_type: "crop_center",
+              size: "medium",
               preview: true,
             })),
             ...(item.videos || []).map((video, videoIndex) => ({
