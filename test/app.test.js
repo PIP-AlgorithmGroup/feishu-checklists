@@ -7,6 +7,7 @@ const {
   buildCompressionNotice,
   buildCloudbaseUploadBody,
   buildStoragePath,
+  callJsApi,
   createMediaRegistrationPayload,
   buildTestCard,
   formatFileSize,
@@ -21,12 +22,47 @@ const {
   parseBulkItems,
   parseTriggerCode,
   resolveCloudbaseAuth,
+  requestJson,
   ensureCloudbaseSession,
   shouldCreateNewItem,
   shouldRefreshSession,
   uploadToSignedUrl,
   utf8Size,
 } = require("../app.js");
+
+test("fails a Feishu JSAPI call that never invokes a callback", async () => {
+  await assert.rejects(
+    callJsApi(
+      { sendMessageCard() {} },
+      "sendMessageCard",
+      {},
+      { timeoutMs: 10, timeoutMessage: "飞书发送超时" },
+    ),
+    /飞书发送超时/,
+  );
+});
+
+test("accepts a Feishu JSAPI promise when callbacks are not invoked", async () => {
+  const result = await callJsApi(
+    { sendMessageCard: () => Promise.resolve({ sent: true }) },
+    "sendMessageCard",
+    {},
+    { timeoutMs: 10, timeoutMessage: "飞书发送超时" },
+  );
+
+  assert.deepEqual(result, { sent: true });
+});
+
+test("fails an HTTP request whose response never arrives", async () => {
+  await assert.rejects(
+    requestJson("https://example.com", undefined, {
+      timeoutMs: 10,
+      timeoutMessage: "创建清单超时",
+      fetchImpl: () => new Promise(() => {}),
+    }),
+    /创建清单超时/,
+  );
+});
 
 test("parses triggerCode from both documented field names", () => {
   const current = new URL(
@@ -355,7 +391,7 @@ test("configures the private checklist media bucket", () => {
   assert.match(html, /cloudbaseBucket:\s*"checklist-media"/);
   assert.match(html, /cloudbaseAccessKey:\s*"eyJ[^\"]+"/);
   assert.match(html, /cloudbase-js-sdk\/3\.8\.2\/cloudbase\.full\.js/);
-  assert.match(html, /app\.js\?v=20260918-28/);
+  assert.match(html, /app\.js\?v=20260918-29/);
 });
 
 test("formats uploaded image dimensions and file size", () => {

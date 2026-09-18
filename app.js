@@ -337,9 +337,76 @@
     return Buffer.byteLength(value, "utf8");
   }
 
-  function callJsApi(api, method, options) {
+  function withTimeout(promise, timeoutMs, timeoutMessage, onTimeout) {
     return new Promise((resolve, reject) => {
-      api[method]({ ...options, success: resolve, fail: reject });
+      const timer = setTimeout(() => {
+        onTimeout?.();
+        reject(new Error(timeoutMessage));
+      }, timeoutMs);
+      Promise.resolve(promise).then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      );
+    });
+  }
+
+  async function requestJson(
+    url,
+    options,
+    {
+      timeoutMs = 20_000,
+      timeoutMessage = "请求超时，请稍后重试",
+      fetchImpl = fetch,
+    } = {},
+  ) {
+    const controller = typeof AbortController === "undefined" ? null : new AbortController();
+    const response = await withTimeout(
+      fetchImpl(url, { ...options, ...(controller ? { signal: controller.signal } : {}) }),
+      timeoutMs,
+      timeoutMessage,
+      () => controller?.abort(),
+    );
+    const payload = await withTimeout(response.json(), timeoutMs, timeoutMessage);
+    return { response, payload };
+  }
+
+  function callJsApi(
+    api,
+    method,
+    options,
+    { timeoutMs = 20_000, timeoutMessage = "飞书操作超时，请稍后重试" } = {},
+  ) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error(timeoutMessage));
+      }, timeoutMs);
+      const finish = (callback) => (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        callback(value);
+      };
+      try {
+        const returned = api[method]({
+          ...options,
+          success: finish(resolve),
+          fail: finish(reject),
+        });
+        if (returned && typeof returned.then === "function") {
+          returned.then(finish(resolve), finish(reject));
+        }
+      } catch (error) {
+        finish(reject)(error);
+      }
     });
   }
 
@@ -373,15 +440,21 @@
     function authenticateSession() {
       if (sessionRefreshPromise) return sessionRefreshPromise;
       sessionRefreshPromise = (async () => {
-        const auth = await callJsApi(window.tt, "requestAuthCode", {
-          appId: feishuAppId,
-        });
-        const authResponse = await fetch(config.apiEndpoint, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: "authenticate", code: auth.code }),
-        });
-        const authPayload = await authResponse.json();
+        const auth = await callJsApi(
+          window.tt,
+          "requestAuthCode",
+          { appId: feishuAppId },
+          { timeoutMessage: "飞书身份授权超时，请关闭侧栏后重试" },
+        );
+        const { response: authResponse, payload: authPayload } = await requestJson(
+          config.apiEndpoint,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "authenticate", code: auth.code }),
+          },
+          { timeoutMessage: "身份服务连接超时，请稍后重试" },
+        );
         if (!authResponse.ok || authPayload.code !== 0) {
           throw new Error(authPayload.message || "用户身份校验失败");
         }
@@ -1044,8 +1117,11 @@
       show("正在连接飞书", "正在完成 JSAPI 鉴权。", "waiting");
       const signUrl = new URL(config.signEndpoint);
       signUrl.searchParams.set("url", getSignableUrl(window.location.href));
-      const response = await fetch(signUrl);
-      const payload = await response.json();
+      const { response, payload } = await requestJson(
+        signUrl,
+        undefined,
+        { timeoutMessage: "签名服务连接超时，请稍后重试" },
+      );
       if (!response.ok || payload.code !== 0) {
         throw new Error(payload.message || `签名服务返回 HTTP ${response.status}`);
       }
@@ -1075,22 +1151,29 @@
           if (utf8Size(JSON.stringify(cardContent)) > CARD_LIMIT_BYTES) {
             throw new Error("卡片内容超过 20 KB 客户端限制");
           }
-          const createResponse = await fetch(config.apiEndpoint, {
-            method: "POST",
-            headers: {
-              authorization: `Bearer ${sessionToken}`,
-              "content-type": "application/json",
+          show("正在保存清单", "正在写入清单状态。", "waiting");
+          const { response: createResponse, payload: createPayload } = await requestJson(
+            config.apiEndpoint,
+            {
+              method: "POST",
+              headers: {
+                authorization: `Bearer ${sessionToken}`,
+                "content-type": "application/json",
+              },
+              body: JSON.stringify(checklist),
             },
-            body: JSON.stringify(checklist),
-          });
-          const createPayload = await createResponse.json();
+            { timeoutMessage: "创建清单超时，请稍后重试" },
+          );
           if (!createResponse.ok || createPayload.code !== 0) {
             throw new Error(createPayload.message || "创建清单失败");
           }
-          await callJsApi(window.tt, "sendMessageCard", {
-            triggerCode,
-            cardContent,
-          });
+          show("正在发送到飞书", "正在调用当前会话发送接口。", "waiting");
+          await callJsApi(
+            window.tt,
+            "sendMessageCard",
+            { triggerCode, cardContent },
+            { timeoutMessage: "飞书发送超时，请关闭侧栏后重试" },
+          );
           show("清单已发送", "", "ready");
           updateSendState();
         } catch (error) {
@@ -1114,6 +1197,7 @@
     buildCompressionNotice,
     buildStoragePath,
     buildTestCard,
+    callJsApi,
     createMediaRegistrationPayload,
     ensureCloudbaseSession,
     formatFileSize,
@@ -1129,9 +1213,11 @@
     parseBulkItems,
     parseTriggerCode,
     resolveCloudbaseAuth,
+    requestJson,
     shouldCreateNewItem,
     shouldRefreshSession,
     uploadToSignedUrl,
     utf8Size,
+    withTimeout,
   };
 });
