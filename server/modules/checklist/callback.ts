@@ -52,19 +52,27 @@ export function parseIncomingCallback(
   if (!Buffer.isBuffer(body) || body.length === 0) {
     throw new Error('飞书回调缺少原始请求体');
   }
+  const envelope: unknown = JSON.parse(body.toString('utf8'));
+  const encrypted: string | null = record(envelope) &&
+    typeof envelope.encrypt === 'string' ? envelope.encrypt : null;
   const timestamp: unknown = headers['x-lark-request-timestamp'];
   const nonce: unknown = headers['x-lark-request-nonce'];
   const signature: unknown = headers['x-lark-signature'];
-  if (typeof timestamp !== 'string' || typeof nonce !== 'string' ||
-      typeof signature !== 'string' || !verifySignature({
-        timestamp, nonce, signature, encryptKey: config.encryptKey,
+  const signatureFields: unknown[] = [timestamp, nonce, signature];
+  const signed: boolean = signatureFields.every((field: unknown) =>
+    typeof field === 'string' && field.length > 0);
+  if (!signed && signatureFields.some((field: unknown) => field !== undefined)) {
+    throw new Error('飞书回调签名字段不完整');
+  }
+  if (signed && !verifySignature({
+        timestamp: String(timestamp), nonce: String(nonce), signature: String(signature),
+        encryptKey: config.encryptKey,
         body: body.toString('utf8'),
       })) {
     throw new Error('飞书回调签名无效');
   }
-  const envelope: unknown = JSON.parse(body.toString('utf8'));
-  const payload: unknown = record(envelope) && typeof envelope.encrypt === 'string'
-    ? decryptPayload(envelope.encrypt, config.encryptKey) : envelope;
+  const payload: unknown = encrypted
+    ? decryptPayload(encrypted, config.encryptKey) : envelope;
   if (record(payload) && payload.type === 'url_verification') {
     if (payload.token !== config.verificationToken ||
         typeof payload.challenge !== 'string' || !payload.challenge) {
@@ -72,6 +80,7 @@ export function parseIncomingCallback(
     }
     return { challenge: payload.challenge };
   }
+  if (!signed && !encrypted) throw new Error('飞书明文回调缺少签名');
   return payload;
 }
 

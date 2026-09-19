@@ -87,3 +87,24 @@ test('rejects unsigned or altered callbacks before processing them', () => {
     appId: '', verificationToken: '', encryptKey: '',
   }), /配置/);
 });
+
+test('accepts Feishu URL verification without signature headers only with its token', () => {
+  const config = { appId: 'cli_test', verificationToken: 'token', encryptKey: 'key' };
+  const challenge = { type: 'url_verification', token: 'token', challenge: 'check-me' };
+  assert.deepEqual(parseIncomingCallback(Buffer.from(JSON.stringify(challenge)), {}, config),
+    { challenge: 'check-me' });
+  assert.throws(() => parseIncomingCallback(Buffer.from(JSON.stringify({
+    ...challenge, token: 'wrong',
+  })), {}, config), /Token|校验/);
+
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', crypto.createHash('sha256')
+    .update(config.encryptKey).digest(), iv);
+  const encrypt = Buffer.concat([iv, cipher.update(JSON.stringify(challenge)),
+    cipher.final()]).toString('base64');
+  assert.deepEqual(parseIncomingCallback(Buffer.from(JSON.stringify({ encrypt })), {}, config),
+    { challenge: 'check-me' });
+  assert.throws(() => parseIncomingCallback(Buffer.from(JSON.stringify({ encrypt })), {
+    'x-lark-request-timestamp': '123',
+  }, config), /签名/);
+});
