@@ -54,5 +54,7 @@ test('recognizes an unchanged retry after jsonb reorders object keys', () => {
     }],
   };
   assert.equal(matchesChecklistDraft(stored, draft), true);
+  stored.items[0].checked = true;
+  assert.equal(matchesChecklistDraft(stored, draft), true);
   assert.equal(matchesChecklistDraft({ ...stored, title: 'Another title' }, draft), false);
 });

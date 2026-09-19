@@ -10,6 +10,8 @@
 **Tests**: Backend unit/integration tests and platform typecheck/build.
 **Status**: In Progress
 
+Dev database, authenticated creation, conditional single-row event updates, and callback/card pure logic are in place. Next: verify a public Feishu callback ingress that supports URL verification and synchronous card responses, then wire it to the service. No online switch until this is proven.
+
 ## Stage 3: Port the editor and file workflow
 **Goal**: Restore the side-panel editor, image compression, per-file progress, and current-chat card sending against the Miaoda APIs.
 **Success Criteria**: Desktop/mobile editor behavior matches the archived baseline; browser upload does not expose server credentials or permit arbitrary server-side URL fetching.

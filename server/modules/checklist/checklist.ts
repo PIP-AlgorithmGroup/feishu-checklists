@@ -6,10 +6,26 @@ import type {
 } from '../../../shared/api.interface';
 import { isDeepStrictEqual } from 'node:util';
 
+export interface ChecklistEvent {
+  eventId: string;
+  checklistId: string;
+  itemId: string;
+  checked: boolean;
+  openMessageId: string;
+  openChatId: string;
+}
+
 export function matchesChecklistDraft(
   stored: { title: string; items: unknown }, draft: ChecklistDraft,
 ): boolean {
-  return stored.title === draft.title && isDeepStrictEqual(stored.items, draft.items);
+  if (stored.title !== draft.title) return false;
+  const current: ChecklistDraft = parseStoredChecklist({
+    id: draft.id, title: stored.title, items: stored.items,
+  });
+  return isDeepStrictEqual(
+    current.items.map((item: ChecklistItem) => ({ ...item, checked: false })),
+    draft.items,
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -94,4 +110,32 @@ export function parseChecklist(input: unknown): ChecklistDraft {
   });
 
   return { id, title, items };
+}
+
+export function parseStoredChecklist(input: unknown): ChecklistDraft {
+  const draft: ChecklistDraft = parseChecklist(input);
+  if (!isRecord(input) || !Array.isArray(input.items)) {
+    throw new Error('清单存储格式无效');
+  }
+  const items: ChecklistItem[] = draft.items.map((item: ChecklistItem, index: number) => {
+    const stored: unknown = input.items[index];
+    if (!isRecord(stored) || typeof stored.checked !== 'boolean') {
+      throw new Error('清单勾选状态无效');
+    }
+    return { ...item, checked: stored.checked };
+  });
+  return { ...draft, items };
+}
+
+export function updateChecklistItem(
+  draft: ChecklistDraft, itemId: string, checked: boolean,
+): ChecklistDraft {
+  if (!draft.items.some((item: ChecklistItem) => item.id === itemId)) {
+    throw new Error('事项不存在');
+  }
+  return {
+    ...draft,
+    items: draft.items.map((item: ChecklistItem) =>
+      item.id === itemId ? { ...item, checked } : item),
+  };
 }

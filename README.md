@@ -1,6 +1,8 @@
 # 飞书多媒体检查清单：妙搭迁移
 
-`develop/miaoda-migration` 是当前项目的妙搭 `full_stack` 本地工程，关联妙搭应用 `app_17eebbe30dh`。原 CloudBase 版本保存在 `develop/cloudbase-backend`，`main` 未改动。当前只有平台脚手架和待移植的业务契约，**尚不能替代线上应用**，不要直接切换现有飞书入口。
+`develop/miaoda-migration` 是当前项目的妙搭 `full_stack` 本地工程，关联妙搭应用 `app_17eebbe30dh`。原 CloudBase 版本保存在 `develop/cloudbase-backend`，`main` 未改动。妙搭 dev 库已有清单表、创建接口和回调的数据库更新逻辑，但**尚不能替代线上应用**，不要切换现有飞书入口。
+
+目前用户无需操作。飞书回调的公网入口和同步响应能力尚未验证，不能把妙搭开发预览 URL 直接填入飞书后台；验证完成后再明确给出回调 URL、飞书后台字段和所需凭证的安全配置方式。不要把 App Secret、Verification Token 或 Encrypt Key 粘贴进聊天。
 
 ## 保留的业务契约
 
@@ -11,7 +13,7 @@
 - `src/media.js`：图片与 MP4 文件签名、体积校验和飞书媒体上传。文件读取与所有权校验尚未接入。
 - `src/editor.js`：批量录入、排序、快捷键、剪贴板媒体和会话启动参数的纯规则。
 
-运行 `node --test` 验证当前保留的跨平台契约。平台工程使用 `npm run type:check`、`npm run build` 和 `npm run lint`。原侧栏 UI、图片压缩和上传进度实现仍可从 CloudBase 分支取用，但尚未迁入妙搭工程。
+`server/modules/checklist/` 已迁入校验、创建 API、单行版本条件更新及回调/卡片纯逻辑；卡片回调尚未接入公网路由，媒体和侧栏编辑器仍待迁移。运行 `node --test` 验证契约；平台工程使用 `npm run type:check`、`npm run build` 和 `npm run lint`。原侧栏 UI、图片压缩和上传进度实现仍可从 CloudBase 分支取用。
 
 ## 迁移接入顺序
 
