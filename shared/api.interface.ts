@@ -26,3 +26,8 @@ export interface ChecklistDraft {
   title: string;
   items: ChecklistItem[];
 }
+
+export interface CreateChecklistResponse {
+  checklist: ChecklistDraft;
+  created: boolean;
+}

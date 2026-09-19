@@ -4,6 +4,13 @@ import type {
   ChecklistItem,
   ChecklistVideo,
 } from '../../../shared/api.interface';
+import { isDeepStrictEqual } from 'node:util';
+
+export function matchesChecklistDraft(
+  stored: { title: string; items: unknown }, draft: ChecklistDraft,
+): boolean {
+  return stored.title === draft.title && isDeepStrictEqual(stored.items, draft.items);
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

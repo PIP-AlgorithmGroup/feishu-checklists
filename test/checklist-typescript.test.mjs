@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseChecklist } from '../server/modules/checklist/checklist.ts';
+import { matchesChecklistDraft, parseChecklist } from '../server/modules/checklist/checklist.ts';
 
 const input = () => ({
   id: 'checklist-1',
@@ -39,4 +39,20 @@ test('rejects missing or malformed fields', () => {
   const bad = input();
   bad.items[0].images = [{ fileId: 'unregistered' }];
   assert.throws(() => parseChecklist(bad), /图片标识无效/);
+});
+
+test('recognizes an unchanged retry after jsonb reorders object keys', () => {
+  const draft = parseChecklist(input());
+  const stored = {
+    title: draft.title,
+    items: [{
+      videos: draft.items[0].videos,
+      images: draft.items[0].images,
+      checked: false,
+      text: draft.items[0].text,
+      id: draft.items[0].id,
+    }],
+  };
+  assert.equal(matchesChecklistDraft(stored, draft), true);
+  assert.equal(matchesChecklistDraft({ ...stored, title: 'Another title' }, draft), false);
 });
