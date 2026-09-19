@@ -10,7 +10,7 @@
 **Tests**: Backend unit/integration tests and platform typecheck/build.
 **Status**: In Progress
 
-Dev database, authenticated creation, conditional single-row event updates, and callback/card pure logic are in place. Next: verify a public Feishu callback ingress that supports URL verification and synchronous card responses, then wire it to the service. No online switch until this is proven.
+Dev database, authenticated creation, conditional single-row event updates, and callback/card pure logic are in place. Callback ingress verification (2026-09-19): an unauthenticated POST to the local `/api/checklist` returned 403 for missing CSRF cookie; the sandbox platform URL redirected an unauthenticated POST to SSO. The `/openapi` gateway requires an API Key. The installed `@lark-apaas/nestjs-trigger` implementation calls the automation handler without awaiting or forwarding its return value and responds to the trigger server with a fixed `{ code: 200, message: 'success' }`, so its Webhook automation cannot supply Feishu's synchronous `challenge` or card JSON. This app has no finished release or configured trigger. A published custom public route has not been tested; do not assert that the entire platform is incapable of it. Next: establish whether the published gateway permits an unauthenticated, CSRF-free custom POST route with raw-body access and synchronous JSON response, using an isolated probe only after publication is explicitly approved. No Feishu callback switch or CloudBase shutdown until this is proven.
 
 ## Stage 3: Port the editor and file workflow
 **Goal**: Restore the side-panel editor, image compression, per-file progress, and current-chat card sending against the Miaoda APIs.
