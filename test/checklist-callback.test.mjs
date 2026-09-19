@@ -8,6 +8,7 @@ import {
   processCallback,
   renderCard,
   verifySignature,
+  parseIncomingCallback,
 } from '../server/modules/checklist/callback.ts';
 
 const payload = () => ({
@@ -62,4 +63,27 @@ test('verifies raw signatures and decrypts encrypted payloads', () => {
   const cipher = crypto.createCipheriv('aes-256-cbc', crypto.createHash('sha256').update(key).digest(), iv);
   const encrypted = Buffer.concat([iv, cipher.update(body), cipher.final()]).toString('base64');
   assert.deepEqual(decryptPayload(encrypted, key), payload());
+});
+
+test('answers a signed URL verification challenge', () => {
+  const body = JSON.stringify({ type: 'url_verification', token: 'token', challenge: 'challenge-1' });
+  const key = 'encrypt-key';
+  const signature = crypto.createHash('sha256').update('123nonce' + key + body).digest('hex');
+  assert.deepEqual(parseIncomingCallback(Buffer.from(body), {
+    'x-lark-request-timestamp': '123', 'x-lark-request-nonce': 'nonce',
+    'x-lark-signature': signature,
+  }, { appId: 'cli_test', verificationToken: 'token', encryptKey: key }),
+  { challenge: 'challenge-1' });
+});
+
+test('rejects unsigned or altered callbacks before processing them', () => {
+  const config = { appId: 'cli_test', verificationToken: 'token', encryptKey: 'key' };
+  assert.throws(() => parseIncomingCallback(Buffer.from(JSON.stringify(payload())), {}, config), /签名/);
+  assert.throws(() => parseIncomingCallback(Buffer.from(JSON.stringify(payload())), {
+    'x-lark-request-timestamp': '123', 'x-lark-request-nonce': 'nonce',
+    'x-lark-signature': 'invalid',
+  }, config), /签名/);
+  assert.throws(() => parseIncomingCallback(Buffer.from('{}'), {}, {
+    appId: '', verificationToken: '', encryptKey: '',
+  }), /配置/);
 });

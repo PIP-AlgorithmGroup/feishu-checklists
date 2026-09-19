@@ -5,6 +5,7 @@ import type { ChecklistEvent } from './checklist';
 interface CallbackConfig {
   appId?: string;
   verificationToken?: string;
+  encryptKey?: string;
 }
 
 interface SignatureInput {
@@ -38,6 +39,40 @@ export function decryptPayload(encrypted: string, encryptKey: string): unknown {
     decipher.update(bytes.subarray(16)), decipher.final(),
   ]);
   return JSON.parse(plaintext.toString('utf8'));
+}
+
+export function parseIncomingCallback(
+  body: Buffer,
+  headers: Record<string, string | string[] | undefined>,
+  config: CallbackConfig,
+): unknown {
+  if (!config.appId || !config.verificationToken || !config.encryptKey) {
+    throw new Error('飞书回调配置不完整');
+  }
+  if (!Buffer.isBuffer(body) || body.length === 0) {
+    throw new Error('飞书回调缺少原始请求体');
+  }
+  const timestamp: unknown = headers['x-lark-request-timestamp'];
+  const nonce: unknown = headers['x-lark-request-nonce'];
+  const signature: unknown = headers['x-lark-signature'];
+  if (typeof timestamp !== 'string' || typeof nonce !== 'string' ||
+      typeof signature !== 'string' || !verifySignature({
+        timestamp, nonce, signature, encryptKey: config.encryptKey,
+        body: body.toString('utf8'),
+      })) {
+    throw new Error('飞书回调签名无效');
+  }
+  const envelope: unknown = JSON.parse(body.toString('utf8'));
+  const payload: unknown = record(envelope) && typeof envelope.encrypt === 'string'
+    ? decryptPayload(envelope.encrypt, config.encryptKey) : envelope;
+  if (record(payload) && payload.type === 'url_verification') {
+    if (payload.token !== config.verificationToken ||
+        typeof payload.challenge !== 'string' || !payload.challenge) {
+      throw new Error('飞书 URL 校验无效');
+    }
+    return { challenge: payload.challenge };
+  }
+  return payload;
 }
 
 export function parseCallback(payload: unknown, config: CallbackConfig): ChecklistEvent {
