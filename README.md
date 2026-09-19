@@ -1,83 +1,25 @@
-# 飞书多媒体检查清单
+# 飞书多媒体检查清单：妙搭迁移准备
 
-企业自建飞书应用。发送方从当前会话的“+”菜单打开侧栏编辑器，创建带图片或 MP4 视频的检查清单并发送卡片；会话成员可以直接勾选或取消，数据库保存权威状态并同步刷新卡片。
+本分支是迁移工作区，**不是可部署的应用**。原 CloudBase 版本完整保存在 `codex/cloudbase-backend` 分支；`main` 未改动。不要把本分支直接部署到现有飞书入口。
 
-## 当前能力
+## 保留的业务契约
 
-- 批量录入、逐项编辑、删除和上下排序，最多 50 项，每项最多 500 字
-- Enter 换行，Shift+Enter 新建事项
-- 每项最多 3 张图片和 3 个 MP4 视频
-- 选择或粘贴多个媒体文件，每个文件独立显示上传进度
-- JPG、PNG、WebP 图片上限 5 MB；原图不超过 20 MB 时可自动压缩
-- MP4 视频上限 30 MB
-- 手机和电脑通过文件选择器上传；剪贴板上传取决于当前飞书 WebView 是否暴露文件数据
-- Card JSON 2.0 checker，支持双向勾选、取消和跨设备刷新
-- 回调验签/解密、消息与会话绑定、event_id 幂等
-- 媒体保存在 CloudBase 私有云存储，并转存到飞书取得 image_key/file_key
+- `src/checklist.js`：最多 50 项、每项 500 字、每项最多 3 张图片和 3 个视频的服务端校验与规范化。
+- `src/card.js`：Card JSON 2.0 checker、图片缩略图、视频和 `update_multi` 的发送与回调渲染。
+- `src/callback.js`：飞书回调验签、解密、事件解析，以及通过 `repository.apply(event)` 更新后返回卡片。幂等、消息与会话绑定必须由未来的事务仓储实现。
+- `src/auth.js`、`src/sign.js`：飞书授权码交换、短期会话、H5 JSAPI 签名和页面来源校验。
+- `src/media.js`：图片与 MP4 文件签名、体积校验和飞书媒体上传。文件读取与所有权校验尚未接入。
+- `src/editor.js`：批量录入、排序、快捷键、剪贴板媒体和会话启动参数的纯规则。
 
-尚未实现：历史清单、复制重用、14 天后重新发送、孤立云存储对象自动清理。
+运行 `node --test` 验证当前保留的跨平台契约。原侧栏 UI、图片压缩和上传进度实现仍可从 CloudBase 分支取用，但尚未迁入妙搭工程。
 
-## 数据流
+## 迁移接入顺序
 
-```text
-飞书会话“+”菜单
-  -> CloudBase 静态托管 H5
-  -> feishu-sign：生成 H5 JSAPI 签名
-  -> feishu-checklist-api：用户鉴权、媒体转存、创建清单
-  -> tt.sendMessageCard：发送到当前会话
-  -> feishu-card-callback：处理 card.action.trigger
-  -> CloudBase PostgreSQL：保存清单和幂等事件
-```
+1. 创建或定位一个妙搭 `full_stack` 应用，使用其正式脚手架初始化单独的本地项目，读取该项目 `.agents/skills/` 中的数据库、文件、鉴权和插件指引。**本仓库并非妙搭源码仓库**；不要猜造 SDK 或路由合同。
+2. 将 `src/` 的纯逻辑和测试移入妙搭工程，在其实际 router/bootstrap 中接入页面和 API。保留飞书企业自建应用、机器人、网页应用侧栏、JSAPI 权限及 `card.action.trigger` 订阅。
+3. 用妙搭数据库重建清单与事件表、事务、`event_id` 唯一幂等、消息与会话绑定；按平台审计列和 RLS 规范建表，确认回调服务端身份的数据库权限。
+4. 按妙搭运行时文件 SDK 实现私有上传、所有权验证、受限下载和失败清理。后端在校验字节后转存飞书，返回 `image_key` / `file_key`；不要由浏览器传任意下载 URL 让服务端抓取。
+5. 验证飞书侧栏的 `requestAuthCode`、`getTriggerContext`、`sendMessageCard`，以及公开回调的原始签名信息、同步卡片响应和 3 秒时限；验证 30 MB MP4 的上传、转存、超时与内存限制。
+6. 端到端验收和数据迁移完成后，才能切换飞书网页入口及事件回调。切换前保留 CloudBase 线上资源，不清理线上数据或存储。
 
-媒体不会以 Base64 进入 API：
-
-```text
-浏览器 -> CloudBase 私有存储 -> 临时下载 URL
-       -> feishu-checklist-api -> 飞书媒体接口
-```
-
-## 目录
-
-```text
-index.html                         静态页面、样式和公开配置
-app.js                             编辑器、CloudBase 上传和飞书 JSAPI
-cloudfunctions/feishu-sign/        H5 JSAPI 签名
-cloudfunctions/feishu-checklist-api/ 用户会话、媒体登记和清单创建
-cloudfunctions/feishu-card-callback/ 卡片回调、渲染和数据库 SQL
-scripts/build-functions.ps1       生成三个云函数部署 ZIP
-test/                              前端、样式和跨模块契约测试
-docs/DEPLOYMENT.md                 部署流程
-docs/TROUBLESHOOTING.md            踩坑、限制和排障依据
-```
-
-## 开发验证
-
-需要 Node.js 18 或更高版本。项目运行代码没有第三方 npm 依赖。
-
-```powershell
-node --test
-node --check app.js
-node --check cloudfunctions/feishu-sign/index.js
-node --check cloudfunctions/feishu-checklist-api/index.js
-node --check cloudfunctions/feishu-card-callback/index.js
-```
-
-生成部署包：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/build-functions.ps1
-```
-
-产物位于 `dist/`，ZIP 内的 `index.js` 位于根目录。
-
-## 部署与排障
-
-- 首次部署或迁移环境：阅读 [部署指南](docs/DEPLOYMENT.md)
-- 上传、鉴权、回调或缓存异常：阅读 [踩坑与排障](docs/TROUBLESHOOTING.md)
-
-## 安全边界
-
-- `App Secret`、Verification Token、Encrypt Key 和服务端 CloudBase API Key 只存在云函数环境变量中。
-- `index.html` 中的 CloudBase Publishable Key 是浏览器公开凭证，不等同于服务端 `CLOUDBASE_APIKEY`。
-- 云存储桶必须是私有桶，并通过 owner_id 策略限制匿名会话只能访问自己的文件。
-- 下载 URL 必须属于当前 CloudBase 环境，且对象路径必须与 fileId 完全一致。
+当前没有妙搭 `app_id`、平台脚手架或运行时 SDK 合同，因此本分支没有配置虚假的妙搭适配层，也没有创建应用、迁移线上数据、切换入口或发布。`src/` 为 CommonJS 形式的可移植参考代码；进入实际妙搭工程后按项目约定改为相应模块格式。

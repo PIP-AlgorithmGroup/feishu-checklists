@@ -6,7 +6,6 @@ dist/
 .env.*
 !.env.example
 
-.cloudbase/
 *.log
 
 .DS_Store

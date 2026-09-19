@@ -2,19 +2,6 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
 let tokenCache = { value: "", expiresAt: 0 };
 
-function isCloudbaseStorageHost(hostname, envId) {
-  if (hostname === `${envId}.api.tcloudbasegateway.com`) return true;
-
-  const escapedEnvId = String(envId).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const legacySuffixes = ["tcb.qcloud.la", "tcloudbaseapp.com", "myqcloud.com"];
-  return legacySuffixes.some((suffix) =>
-    new RegExp(
-      `^${escapedEnvId}(?:-\\d+)?(?:\\.[a-z0-9-]+)*\\.${suffix.replaceAll(".", "\\.")}$`,
-      "i",
-    ).test(hostname),
-  );
-}
-
 function getUploadErrorMessage(payload, status, mediaName) {
   const message = payload?.msg || String(status);
   if (/does not enable bot feature/i.test(message)) {
@@ -81,56 +68,6 @@ function parseVideoInput(input) {
   return { buffer, mimeType: "video/mp4", fileName, duration };
 }
 
-function parseStoredMediaInput(input, envId) {
-  const fileId = typeof input?.fileId === "string" ? input.fileId : "";
-  const downloadUrl = typeof input?.downloadUrl === "string" ? input.downloadUrl : "";
-  const escapedEnvId = String(envId).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const fileIdPattern = new RegExp(
-    `^cloud://${escapedEnvId}(?:\\.[^/]+)?/checklist-media/[a-zA-Z0-9_-]+\\.(?:jpg|png|webp|mp4)$`,
-  );
-  if (!fileIdPattern.test(fileId)) throw new Error("CloudBase 媒体存储路径无效");
-
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(downloadUrl);
-  } catch {
-    throw new Error("CloudBase 媒体下载地址无效");
-  }
-  const allowedHost =
-    parsedUrl.protocol === "https:" &&
-    !parsedUrl.username &&
-    !parsedUrl.password &&
-    isCloudbaseStorageHost(parsedUrl.hostname, envId);
-  if (!allowedHost || !parsedUrl.pathname.includes("/checklist-media/")) {
-    throw new Error("CloudBase 媒体下载地址无效");
-  }
-  const objectPath = fileId.slice(fileId.indexOf("/checklist-media/") + 1);
-  let decodedPath;
-  try {
-    decodedPath = decodeURIComponent(parsedUrl.pathname);
-  } catch {
-    throw new Error("CloudBase 媒体下载地址无效");
-  }
-  if (!decodedPath.endsWith(`/${objectPath}`)) {
-    throw new Error("CloudBase 媒体下载地址与文件不匹配");
-  }
-  return { fileId, downloadUrl };
-}
-
-async function downloadStoredMedia(downloadUrl, maxBytes) {
-  const response = await fetch(downloadUrl);
-  if (!response.ok) {
-    throw new Error(`读取 CloudBase 媒体失败：HTTP ${response.status}`);
-  }
-  const declaredSize = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declaredSize) && declaredSize > maxBytes) {
-    throw new Error("CloudBase 媒体超过允许的体积");
-  }
-  const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.length > maxBytes) throw new Error("CloudBase 媒体超过允许的体积");
-  return buffer;
-}
-
 async function getTenantAccessToken({ appId, appSecret }) {
   if (tokenCache.value && tokenCache.expiresAt > Date.now() + 60_000) {
     return tokenCache.value;
@@ -195,37 +132,10 @@ async function uploadImage(input, { appId, appSecret }, fileId = null) {
   return { fileId, imageKey };
 }
 
-async function uploadMedia(input, credentials) {
-  const stored = parseStoredMediaInput(input, credentials.envId);
-  const maxBytes = input?.mimeType === "video/mp4" ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
-  const normalizedInput = {
-    ...input,
-    buffer: await downloadStoredMedia(stored.downloadUrl, maxBytes),
-  };
-  const fileId = stored.fileId;
-  if (normalizedInput?.mimeType === "video/mp4") {
-    const video = parseVideoInput(normalizedInput);
-    const accessToken = await getTenantAccessToken(credentials);
-    const fileKey = await uploadVideoToFeishu(video, accessToken);
-    return {
-      type: "video",
-      fileId,
-      fileKey,
-      fileName: video.fileName,
-      duration: video.duration,
-    };
-  }
-  const image = await uploadImage(normalizedInput, credentials, fileId);
-  return { type: "image", ...image };
-}
-
 module.exports = {
-  downloadStoredMedia,
   getUploadErrorMessage,
-  isCloudbaseStorageHost,
   parseImageInput,
-  parseStoredMediaInput,
   parseVideoInput,
   uploadImage,
-  uploadMedia,
+  uploadVideoToFeishu,
 };
