@@ -43,6 +43,9 @@ CREATE POLICY "修改全部数据" ON checklist
 CREATE POLICY "查看全部数据" ON checklist
   AS PERMISSIVE FOR SELECT TO authenticated, anon USING (true);
 
+CREATE POLICY "飞书回调更新" ON checklist
+  AS PERMISSIVE FOR UPDATE TO anon USING (true) WITH CHECK (true);
+
 CREATE POLICY "修改本人数据" ON checklist
   AS PERMISSIVE FOR ALL TO authenticated USING (
     (current_setting('app.user_id'::text) = ANY (ARRAY[]::text[]))
