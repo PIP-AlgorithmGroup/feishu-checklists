@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   buildCardContent,
+  getSafeLoginReturnUrl,
   parseTriggerCode,
 } from '../client/src/pages/ChecklistPage/checklist-utils.ts';
 
@@ -10,6 +11,13 @@ test('reads the Feishu launch trigger from the side-panel URL', () => {
   const query = encodeURIComponent(JSON.stringify({ trigger_id: 'trigger-1' }));
   assert.equal(parseTriggerCode(`https://example.com/?bdp_launch_query=${query}`), 'trigger-1');
   assert.equal(parseTriggerCode('https://example.com/'), null);
+});
+
+test('removes Feishu launch parameters from the Miaoda login return URL', () => {
+  assert.equal(
+    getSafeLoginReturnUrl('https://example.com/app/app_1?bdp_launch_query=%7B%7D#from'),
+    'https://example.com/app/app_1',
+  );
 });
 
 test('builds the same interactive media card shape used by callbacks', () => {

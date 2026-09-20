@@ -9,8 +9,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
-import { buildCardContent, parseTriggerCode } from './checklist-utils';
+import { buildCardContent, getSafeLoginReturnUrl, parseTriggerCode } from './checklist-utils';
 import './checklist-page.css';
+
+const LOGIN_LAUNCH_URL_KEY = 'checklist.loginLaunchUrl';
+
+function restoreLaunchUrl(): void {
+  const savedUrl: string | null = sessionStorage.getItem(LOGIN_LAUNCH_URL_KEY);
+  if (!savedUrl || parseTriggerCode(window.location.href)) return;
+  try {
+    const saved = new URL(savedUrl);
+    if (saved.origin !== window.location.origin || saved.pathname !== window.location.pathname ||
+        !parseTriggerCode(saved.href)) return;
+    sessionStorage.removeItem(LOGIN_LAUNCH_URL_KEY);
+    window.history.replaceState(null, '', saved.href);
+  } catch {
+    sessionStorage.removeItem(LOGIN_LAUNCH_URL_KEY);
+  }
+}
+
+restoreLaunchUrl();
 
 interface EditorImage extends ChecklistImage { previewUrl: string }
 interface EditorVideo extends ChecklistVideo { previewUrl: string }
@@ -42,7 +60,10 @@ async function configureFeishu(): Promise<boolean> {
   const session = await authClient.session.getUserInfo();
   if (session.error) {
     if (session.status === 401) {
-      await authClient.session.redirectToLogin();
+      sessionStorage.setItem(LOGIN_LAUNCH_URL_KEY, window.location.href);
+      await authClient.session.redirectToLogin({
+        returnUrl: getSafeLoginReturnUrl(window.location.href),
+      });
       return false;
     }
     throw new Error(session.error.message || '妙搭登录失败');

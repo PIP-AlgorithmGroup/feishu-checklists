@@ -12,6 +12,11 @@ export function parseTriggerCode(value: string): string | null {
   }
 }
 
+export function getSafeLoginReturnUrl(value: string): string {
+  const url = new URL(value);
+  return `${url.origin}${url.pathname}`;
+}
+
 export function buildCardContent(checklist: ChecklistDraft) {
   const completed: number = checklist.items.filter((item: ChecklistItem) => item.checked).length;
   return {
