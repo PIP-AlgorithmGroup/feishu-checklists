@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, ImagePlus, Plus, Send, Trash2, X } from 'lucide-react';
+import { authClient } from '@lark-apaas/client-toolkit/auth';
 import { toast } from 'sonner';
 import type { ChecklistDraft, ChecklistImage, ChecklistVideo } from '@shared/api.interface';
 import { createChecklist, getJsapiSign, registerMedia } from '@/api';
@@ -24,14 +25,28 @@ const newItem = (): EditorItem => ({
 
 function errorMessage(error: unknown): string {
   if (typeof error === 'object' && error !== null) {
-    const value = error as { message?: string; response?: { data?: { error?: { message?: string } } } };
-    return value.response?.data?.error?.message ?? value.message ?? '操作失败';
+    const value = error as {
+      message?: string;
+      errorMessage?: string;
+      errMsg?: string;
+      response?: { data?: { error?: { message?: string } } };
+    };
+    return value.response?.data?.error?.message ?? value.errorMessage ??
+      value.errMsg ?? value.message ?? '操作失败';
   }
   return String(error || '操作失败');
 }
 
-async function configureFeishu(): Promise<void> {
+async function configureFeishu(): Promise<boolean> {
   if (!window.h5sdk || !window.tt) throw new Error('请从飞书客户端会话侧栏打开');
+  const session = await authClient.session.getUserInfo();
+  if (session.error) {
+    if (session.status === 401) {
+      await authClient.session.redirectToLogin({ returnUrl: window.location.href });
+      return false;
+    }
+    throw new Error(session.error.message || '妙搭登录失败');
+  }
   const url: string = window.location.href.split('#')[0];
   const sign = await getJsapiSign(url);
   await new Promise<void>((resolve, reject) => window.h5sdk!.config({
@@ -40,6 +55,7 @@ async function configureFeishu(): Promise<void> {
     onSuccess: resolve,
     onFail: reject,
   }));
+  return true;
 }
 
 async function sendMessageCard(triggerCode: string, cardContent: unknown): Promise<void> {
@@ -114,7 +130,11 @@ export default function ChecklistPage() {
       setStatus('请从飞书会话侧栏打开');
       return;
     }
-    void configureFeishu().then(() => {
+    void configureFeishu().then((ready: boolean) => {
+      if (!ready) {
+        setStatus('正在登录');
+        return;
+      }
       setConnected(true);
       setStatus('当前会话已连接');
     }).catch((error: unknown) => setStatus(errorMessage(error)));
