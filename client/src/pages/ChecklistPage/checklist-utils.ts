@@ -17,6 +17,12 @@ export function getSafeLoginReturnUrl(value: string): string {
   return `${url.origin}${url.pathname}`;
 }
 
+export function needsMiaodaLogin(status: number, userId: unknown): boolean {
+  const validUserId = (typeof userId === 'number' && Number.isFinite(userId)) ||
+    (typeof userId === 'string' && userId.length > 0);
+  return status === 401 || !validUserId;
+}
+
 export function buildCardContent(checklist: ChecklistDraft) {
   const completed: number = checklist.items.filter((item: ChecklistItem) => item.checked).length;
   return {

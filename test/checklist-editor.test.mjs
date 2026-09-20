@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildCardContent,
   getSafeLoginReturnUrl,
+  needsMiaodaLogin,
   parseTriggerCode,
 } from '../client/src/pages/ChecklistPage/checklist-utils.ts';
 
@@ -11,6 +12,12 @@ test('reads the Feishu launch trigger from the side-panel URL', () => {
   const query = encodeURIComponent(JSON.stringify({ trigger_id: 'trigger-1' }));
   assert.equal(parseTriggerCode(`https://example.com/?bdp_launch_query=${query}`), 'trigger-1');
   assert.equal(parseTriggerCode('https://example.com/'), null);
+});
+
+test('detects the auth SDK 401 response even when it reports no error object', () => {
+  assert.equal(needsMiaodaLogin(401, undefined), true);
+  assert.equal(needsMiaodaLogin(200, undefined), true);
+  assert.equal(needsMiaodaLogin(200, 1870298520440907), false);
 });
 
 test('removes Feishu launch parameters from the Miaoda login return URL', () => {

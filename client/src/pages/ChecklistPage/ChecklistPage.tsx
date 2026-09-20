@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
-import { buildCardContent, getSafeLoginReturnUrl, parseTriggerCode } from './checklist-utils';
+import {
+  buildCardContent, getSafeLoginReturnUrl, needsMiaodaLogin, parseTriggerCode,
+} from './checklist-utils';
 import './checklist-page.css';
 
 const LOGIN_LAUNCH_URL_KEY = 'checklist.loginLaunchUrl';
@@ -58,14 +60,14 @@ function errorMessage(error: unknown): string {
 async function configureFeishu(): Promise<boolean> {
   if (!window.h5sdk || !window.tt) throw new Error('请从飞书客户端会话侧栏打开');
   const session = await authClient.session.getUserInfo();
+  if (needsMiaodaLogin(session.status, session.data?.user_info?.user_id)) {
+    sessionStorage.setItem(LOGIN_LAUNCH_URL_KEY, window.location.href);
+    authClient.session.redirectToLogin({
+      returnUrl: getSafeLoginReturnUrl(window.location.href),
+    });
+    return false;
+  }
   if (session.error) {
-    if (session.status === 401) {
-      sessionStorage.setItem(LOGIN_LAUNCH_URL_KEY, window.location.href);
-      await authClient.session.redirectToLogin({
-        returnUrl: getSafeLoginReturnUrl(window.location.href),
-      });
-      return false;
-    }
     throw new Error(session.error.message || '妙搭登录失败');
   }
   const url: string = window.location.href.split('#')[0];
