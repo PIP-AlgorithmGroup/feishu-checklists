@@ -4,10 +4,11 @@ import { raw } from 'express';
 import { ChecklistController } from './checklist.controller';
 import { ChecklistCallbackController } from './checklist-callback.controller';
 import { ChecklistService } from './checklist.service';
+import { FeishuApiService } from './feishu-api';
 
 @Module({
   controllers: [ChecklistController, ChecklistCallbackController],
-  providers: [ChecklistService],
+  providers: [ChecklistService, FeishuApiService],
 })
 export class ChecklistModule {
   constructor(adapterHost: HttpAdapterHost) {

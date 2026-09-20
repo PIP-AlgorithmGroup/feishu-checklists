@@ -1,19 +1,27 @@
-import { logger } from '@lark-apaas/client-toolkit/logger';
 import { axiosForBackend } from '@lark-apaas/client-toolkit/utils/getAxiosForBackend';
+import type {
+  ChecklistDraft, CreateChecklistResponse, JsapiSignResponse,
+  MediaRegistrationInput, MediaRegistrationResponse,
+} from '@shared/api.interface';
 
 
-// Add more API functions here, use axios instance (`axiosForBackend`) to make requests.
-// 
-// 使用示例：
-// export async function getUserData(userId: string) {
-//   try {
-//     const response = await axiosForBackend({
-//       url: `/api/users/${userId}`,
-//       method: 'GET'
-//     });
-//     return response.data;
-//   } catch (error) {
-//     logger.error('获取用户数据失败', error);
-//     throw error;
-//   }
-// }
+export async function getJsapiSign(url: string): Promise<JsapiSignResponse> {
+  const response = await axiosForBackend.get<JsapiSignResponse>('/api/checklist/jsapi-sign', {
+    params: { url },
+  });
+  return response.data;
+}
+
+export async function registerMedia(
+  input: MediaRegistrationInput,
+): Promise<MediaRegistrationResponse> {
+  const response = await axiosForBackend.post<MediaRegistrationResponse>('/api/checklist/media', input);
+  return response.data;
+}
+
+export async function createChecklist(
+  input: ChecklistDraft,
+): Promise<CreateChecklistResponse> {
+  const response = await axiosForBackend.post<CreateChecklistResponse>('/api/checklist', input);
+  return response.data;
+}

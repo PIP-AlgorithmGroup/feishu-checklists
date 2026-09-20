@@ -1,6 +1,6 @@
 # 飞书多媒体检查清单：妙搭迁移
 
-`develop/miaoda-migration` 是当前项目的妙搭 `full_stack` 本地工程，关联妙搭应用 `app_17eebbe30dh`。原 CloudBase 版本保存在 `develop/cloudbase-backend`，`main` 未改动。妙搭 dev 库已有清单表、创建接口和回调的数据库更新逻辑，但**尚不能替代线上应用**，不要切换现有飞书入口。
+`develop/miaoda-migration` 是当前项目的妙搭 `full_stack` 本地工程，关联妙搭应用 `app_17eebbe30dh`。历史版本保存在 `develop/cloudbase-backend`，`main` 未改动。妙搭线上库已经完成历史数据迁移，飞书卡片回调也已切换到妙搭。
 
 目前用户无需操作。飞书回调的公网入口和同步响应能力尚未验证，不能把妙搭开发预览 URL 直接填入飞书后台；验证完成后再明确给出回调 URL、飞书后台字段和所需凭证的安全配置方式。不要把 App Secret、Verification Token 或 Encrypt Key 粘贴进聊天。
 
@@ -13,7 +13,7 @@
 - `src/media.js`：图片与 MP4 文件签名、体积校验和飞书媒体上传。文件读取与所有权校验尚未接入。
 - `src/editor.js`：批量录入、排序、快捷键、剪贴板媒体和会话启动参数的纯规则。
 
-`server/modules/checklist/` 已迁入校验、创建 API、单行版本条件更新及回调/卡片纯逻辑；卡片回调尚未接入公网路由，媒体和侧栏编辑器仍待迁移。运行 `node --test` 验证契约；平台工程使用 `npm run type:check`、`npm run build` 和 `npm run lint`。原侧栏 UI、图片压缩和上传进度实现仍可从 CloudBase 分支取用。
+`server/modules/checklist/` 提供清单校验、创建、JSAPI 签名、妙搭文件转传飞书、版本条件更新和卡片回调。`client/src/pages/ChecklistPage/` 提供飞书会话侧栏编辑器、图片压缩、妙搭文件上传和当前会话发卡。运行 `node --test` 验证契约；平台工程使用 `npm run type:check`、`npm run build` 和 `npm run lint`。
 
 ## 迁移接入顺序
 
@@ -22,6 +22,6 @@
 3. 用妙搭数据库重建清单与事件表、事务、`event_id` 唯一幂等、消息与会话绑定；按平台审计列和 RLS 规范建表，确认回调服务端身份的数据库权限。
 4. 按妙搭运行时文件 SDK 实现私有上传、所有权验证、受限下载和失败清理。后端在校验字节后转存飞书，返回 `image_key` / `file_key`；不要由浏览器传任意下载 URL 让服务端抓取。
 5. 验证飞书侧栏的 `requestAuthCode`、`getTriggerContext`、`sendMessageCard`，以及公开回调的原始签名信息、同步卡片响应和 3 秒时限；验证 30 MB MP4 的上传、转存、超时与内存限制。
-6. 端到端验收和数据迁移完成后，才能切换飞书网页入口及事件回调。切换前保留 CloudBase 线上资源，不清理线上数据或存储。
+6. 发布后在飞书侧栏完成真实清单、图片、视频和双用户勾选验收。旧云资源只用于临时回滚，必须获得明确删除确认后才能清理。
 
 本分支已合入妙搭脚手架，GitHub `origin` 保持不变，妙搭仓库作为 `miaoda` remote。`src/` 仍是 CommonJS 形式的可移植参考代码；接入应用时需按项目约定迁入 `server/`、`client/` 和 `shared/`。目前没有迁移线上数据、切换入口或发布。

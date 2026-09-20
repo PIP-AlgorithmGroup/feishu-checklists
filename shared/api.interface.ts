@@ -31,3 +31,22 @@ export interface CreateChecklistResponse {
   checklist: ChecklistDraft;
   created: boolean;
 }
+
+export interface JsapiSignResponse {
+  appId: string;
+  timestamp: number;
+  nonceStr: string;
+  signature: string;
+}
+
+export interface MediaRegistrationInput {
+  fileId: string;
+  downloadUrl: string;
+  mimeType: string;
+  fileName?: string;
+  duration?: number;
+}
+
+export type MediaRegistrationResponse =
+  | { type: 'image'; fileId: string; imageKey: string }
+  | { type: 'video'; fileId: string; fileKey: string; fileName: string; duration: number };

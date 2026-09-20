@@ -10,16 +10,18 @@
 **Tests**: Backend unit/integration tests and platform typecheck/build.
 **Status**: In Progress
 
-Dev database, authenticated creation, conditional single-row event updates, and callback/card pure logic are in place. The public Miaoda route preserves raw request bytes; signed challenge tests return HTTP 200. The real Feishu app's encrypted, unsigned URL challenge also passed on 2026-09-19, and the callback URL was briefly switched to Miaoda. Miaoda's online checklist table has zero rows, however, so the callback URL was restored to CloudBase and confirmed in Feishu. The three Feishu callback environment variables are configured online. CloudBase's public key cannot read the source database (401), and its console requires the owner's login; export and reconcile legacy rows before the final callback cutover.
+Dev database, authenticated creation, conditional single-row event updates, and callback/card pure logic are in place. All 13 legacy checklists and 24 processed events are migrated and reconciled online. The real Feishu app now sends `card.action.trigger` to Miaoda, and both encrypted challenge verification and a migrated-event idempotency replay have passed. App credentials are configured in Miaoda online without being stored in the repository. JSAPI signing and media transfer remain in progress.
 
 ## Stage 3: Port the editor and file workflow
 **Goal**: Restore the side-panel editor, image compression, per-file progress, and current-chat card sending against the Miaoda APIs.
 **Success Criteria**: Desktop/mobile editor behavior matches the archived baseline; browser upload does not expose server credentials or permit arbitrary server-side URL fetching.
 **Tests**: Frontend tests, build, and browser verification.
-**Status**: Not Started
+**Status**: In Progress
 
 ## Stage 4: Verify, deploy, migrate, and retire CloudBase
 **Goal**: Validate real Feishu callbacks and 30 MB MP4 transfer, migrate existing data, then switch the Feishu entry points and retire CloudBase resources.
 **Success Criteria**: Real two-user card updates work within 3 seconds; migrated records/media reconcile; rollback is possible before old resources are deleted.
 **Tests**: End-to-end acceptance on desktop/mobile, migration reconciliation, online logs/metrics.
-**Status**: Not Started
+**Status**: In Progress
+
+Legacy data migration and callback cutover are complete. The remaining gates are the Feishu side-panel entry switch, real card/media acceptance, and explicit user confirmation before deleting CloudBase resources.

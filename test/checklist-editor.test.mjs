@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  buildCardContent,
+  parseTriggerCode,
+} from '../client/src/pages/ChecklistPage/checklist-utils.ts';
+
+test('reads the Feishu launch trigger from the side-panel URL', () => {
+  const query = encodeURIComponent(JSON.stringify({ trigger_id: 'trigger-1' }));
+  assert.equal(parseTriggerCode(`https://example.com/?bdp_launch_query=${query}`), 'trigger-1');
+  assert.equal(parseTriggerCode('https://example.com/'), null);
+});
+
+test('builds the same interactive media card shape used by callbacks', () => {
+  const content = buildCardContent({
+    id: 'checklist-1',
+    title: '门店检查',
+    items: [{
+      id: 'item-1', text: '检查门头', checked: false,
+      images: [{ fileId: 'file-1', imageKey: 'img-1', width: 100, height: 100, size: 200 }],
+      videos: [{ fileId: 'file-2', fileKey: 'video-1', fileName: 'clip.mp4', duration: 8000 }],
+    }],
+  });
+  assert.equal(content.update_multi, true);
+  assert.equal(content.card.config.update_multi, true);
+  assert.equal(content.card.body.elements[1].tag, 'checker');
+  assert.equal(content.card.body.elements[2].img_key, 'img-1');
+  assert.equal(content.card.body.elements[3].file_key, 'video-1');
+});

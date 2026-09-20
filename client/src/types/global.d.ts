@@ -51,3 +51,24 @@ declare namespace React {
     [key: `--${string}`]: string | number | undefined;
   }
 }
+
+interface FeishuH5Sdk {
+  config(options: Record<string, unknown> & {
+    onSuccess(): void;
+    onFail(error: unknown): void;
+  }): void;
+}
+
+interface FeishuTt {
+  sendMessageCard(options: {
+    triggerCode: string;
+    cardContent: unknown;
+    success(result: unknown): void;
+    fail(error: unknown): void;
+  }): void;
+}
+
+interface Window {
+  h5sdk?: FeishuH5Sdk;
+  tt?: FeishuTt;
+}
