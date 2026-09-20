@@ -42,7 +42,7 @@ async function configureFeishu(): Promise<boolean> {
   const session = await authClient.session.getUserInfo();
   if (session.error) {
     if (session.status === 401) {
-      await authClient.session.redirectToLogin({ returnUrl: window.location.href });
+      await authClient.session.redirectToLogin();
       return false;
     }
     throw new Error(session.error.message || '妙搭登录失败');
