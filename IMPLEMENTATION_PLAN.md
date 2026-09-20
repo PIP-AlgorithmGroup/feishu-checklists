@@ -12,7 +12,7 @@
 
 Dev database, authenticated creation, conditional single-row event updates, and callback/card pure logic are in place. All 13 legacy checklists and 24 processed events are migrated and reconciled online. The real Feishu app now sends `card.action.trigger` to Miaoda, and both encrypted challenge verification and a migrated-event idempotency replay have passed. App credentials are configured in Miaoda online without being stored in the repository. JSAPI signing and media transfer remain in progress.
 
-Current callback failure: the public Feishu callback runs with the database `anon` role. The checklist table permits `anon` reads but not updates, so every versioned update affects zero rows and is misreported as a concurrency conflict. Add and verify an update-only RLS policy for `anon`, then publish the dev-to-online schema diff.
+Resolved callback failure: the public Feishu callback runs with the database `anon` role. The checklist table previously permitted `anon` reads but not updates, so every versioned update affected zero rows and was misreported as a concurrency conflict. Release `7687588611010137358` adds and deploys an update-only RLS policy for `anon`; a real Feishu checkbox click remains the acceptance gate.
 
 ## Stage 3: Port the editor and file workflow
 **Goal**: Restore the side-panel editor, image compression, per-file progress, and current-chat card sending against the Miaoda APIs.
