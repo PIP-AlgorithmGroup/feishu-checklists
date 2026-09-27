@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Get, Post, Query, Req } from '@n
 import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import type { Request } from 'express';
 import type {
-  ChecklistDraft, CreateChecklistResponse, JsapiSignResponse,
+  ChecklistDraft, ChecklistListResponse, CreateChecklistResponse, JsapiSignResponse,
   MediaRegistrationInput, MediaRegistrationResponse,
 } from '../../../shared/api.interface';
 import { parseChecklist } from './checklist';
@@ -15,6 +15,21 @@ export class ChecklistController {
     private readonly checklistService: ChecklistService,
     private readonly feishuApiService: FeishuApiService,
   ) {}
+
+  @NeedLogin()
+  @Get()
+  list(
+    @Query('page') page: string | undefined,
+    @Query('search') search: string | undefined,
+    @Req() req: Request,
+  ): Promise<ChecklistListResponse> {
+    const pageNumber: number = page === undefined ? 1 : Number(page);
+    if (!Number.isSafeInteger(pageNumber) || pageNumber < 1 || pageNumber > 100000) {
+      throw new BadRequestException('页码必须是 1-100000 的整数');
+    }
+    if (search && search.length > 80) throw new BadRequestException('搜索内容不能超过 80 字');
+    return this.checklistService.list(req.userContext.userId, pageNumber, search?.trim() ?? '');
+  }
 
   @NeedLogin()
   @Get('jsapi-sign')

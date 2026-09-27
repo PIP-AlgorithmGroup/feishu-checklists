@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, ImagePlus, Plus, Send, Trash2, X } from 'lucide-react';
 import { authClient } from '@lark-apaas/client-toolkit/auth';
 import { toast } from 'sonner';
@@ -141,6 +142,7 @@ async function compressImage(file: File): Promise<File> {
 }
 
 export default function ChecklistPage() {
+  const navigate = useNavigate();
   const triggerCode = useMemo(() => parseTriggerCode(window.location.href), []);
   const [title, setTitle] = useState('检查清单');
   const [items, setItems] = useState<EditorItem[]>([newItem()]);
@@ -150,7 +152,7 @@ export default function ChecklistPage() {
 
   useEffect(() => {
     if (!triggerCode) {
-      setStatus('请从飞书会话侧栏打开');
+      setStatus('新建清单');
       return;
     }
     void configureFeishu().then((ready: boolean) => {
@@ -244,7 +246,7 @@ export default function ChecklistPage() {
   };
 
   const send = async () => {
-    if (!triggerCode || !connected) return;
+    if (triggerCode && !connected) return;
     const draft: ChecklistDraft = {
       id: crypto.randomUUID(), title: title.trim(),
       items: items.map((item) => ({
@@ -262,18 +264,19 @@ export default function ChecklistPage() {
     setStatus('正在保存并发送');
     try {
       await createChecklist(draft);
-      await sendMessageCard(triggerCode, cardContent);
-      setStatus('清单已发送');
-      toast.success('清单已发送到当前会话');
+      if (triggerCode) await sendMessageCard(triggerCode, cardContent);
+      setStatus(triggerCode ? '清单已发送' : '清单已保存');
+      toast.success(triggerCode ? '清单已发送到当前会话' : '清单已保存');
+      if (!triggerCode) navigate('/manage');
     } catch (error) {
-      setStatus('发送失败');
+      setStatus(triggerCode ? '发送失败' : '保存失败');
       toast.error(errorMessage(error));
     } finally {
       setSending(false);
     }
   };
 
-  const valid = connected && title.trim() && items.every((item) => item.text.trim() && !item.uploading);
+  const valid = (!triggerCode || connected) && title.trim() && items.every((item) => item.text.trim() && !item.uploading);
 
   return (
     <main className="checklist-shell">
@@ -282,7 +285,8 @@ export default function ChecklistPage() {
           <h1>检查清单</h1>
           <p className={connected ? 'status-ready' : ''}>{status}</p>
         </div>
-        <span className="item-count">{items.length}/50</span>
+        <div className="flex items-center gap-3"><Link className="text-sm text-primary" to="/manage">我的清单</Link>
+          <span className="item-count">{items.length}/50</span></div>
       </header>
 
       <section className="editor-section">
@@ -346,7 +350,7 @@ export default function ChecklistPage() {
 
       <Button variant="outline" className="add-item" disabled={items.length >= 50} onClick={() => addItem(items.length - 1)}><Plus />添加事项</Button>
       <footer className="send-bar">
-        <Button className="send-button" disabled={!valid || sending} onClick={() => void send()}><Send />{sending ? '正在发送' : `发送清单 · ${items.length} 项`}</Button>
+        <Button className="send-button" disabled={!valid || sending} onClick={() => void send()}><Send />{sending ? '正在处理' : `${triggerCode ? '发送' : '保存'}清单 · ${items.length} 项`}</Button>
       </footer>
     </main>
   );

@@ -1,14 +1,15 @@
 import {
-  ConflictException, Inject, Injectable, NotFoundException,
+  ConflictException, Inject, Injectable, NotFoundException, UnauthorizedException,
 } from '@nestjs/common';
 import {
   DRIZZLE_DATABASE,
   type PostgresJsDatabase,
 } from '@lark-apaas/fullstack-nestjs-core';
-import { and, eq } from 'drizzle-orm';
+import { and, count, desc, eq, ilike } from 'drizzle-orm';
 import { checklist } from '../../database/schema';
 import type {
   ChecklistDraft,
+  ChecklistListResponse,
   CreateChecklistResponse,
 } from '../../../shared/api.interface';
 import {
@@ -21,6 +22,28 @@ import {
 @Injectable()
 export class ChecklistService {
   constructor(@Inject(DRIZZLE_DATABASE) private readonly db: PostgresJsDatabase) {}
+
+  async list(userId: string, page: number, search: string): Promise<ChecklistListResponse> {
+    if (!userId) throw new UnauthorizedException('请先登录');
+    const pageSize: number = 20;
+    const conditions = and(
+      eq(checklist.createdBy, userId),
+      search ? ilike(checklist.title, `%${search.replace(/[\\%_]/g, '\\$&')}%`) : undefined,
+    );
+    const totals: { total: number }[] = await this.db.select({ total: count() })
+      .from(checklist).where(conditions);
+    const rows: (typeof checklist.$inferSelect)[] = await this.db.select().from(checklist)
+      .where(conditions).orderBy(desc(checklist.updatedAt), desc(checklist.id))
+      .limit(pageSize).offset((page - 1) * pageSize);
+    return {
+      items: rows.map((row: typeof checklist.$inferSelect) => ({
+        ...parseStoredChecklist({ id: row.checklistKey, title: row.title, items: row.items }),
+        createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
+        boundToMessage: Boolean(row.openMessageId),
+      })),
+      total: totals[0].total, page, pageSize,
+    };
+  }
 
   async create(draft: ChecklistDraft, userId: string): Promise<CreateChecklistResponse> {
     const inserted: { id: string }[] = await this.db.insert(checklist).values({

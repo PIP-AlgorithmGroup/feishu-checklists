@@ -32,6 +32,19 @@ export interface CreateChecklistResponse {
   created: boolean;
 }
 
+export interface ChecklistRecord extends ChecklistDraft {
+  createdAt: string;
+  updatedAt: string;
+  boundToMessage: boolean;
+}
+
+export interface ChecklistListResponse {
+  items: ChecklistRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface JsapiSignResponse {
   appId: string;
   timestamp: number;

@@ -1,8 +1,15 @@
 import { axiosForBackend } from '@lark-apaas/client-toolkit/utils/getAxiosForBackend';
 import type {
-  ChecklistDraft, CreateChecklistResponse, JsapiSignResponse,
+  ChecklistDraft, ChecklistListResponse, CreateChecklistResponse, JsapiSignResponse,
   MediaRegistrationInput, MediaRegistrationResponse,
 } from '@shared/api.interface';
+
+export async function listChecklists(page: number, search: string): Promise<ChecklistListResponse> {
+  const response = await axiosForBackend<ChecklistListResponse>({
+    url: '/api/checklist', method: 'GET', params: { page, search },
+  });
+  return response.data;
+}
 
 
 export async function getJsapiSign(url: string): Promise<JsapiSignResponse> {
