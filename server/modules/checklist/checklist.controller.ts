@@ -18,7 +18,7 @@ export class ChecklistController {
 
   @NeedLogin()
   @Get()
-  list(
+  async list(
     @Query('page') page: string | undefined,
     @Query('search') search: string | undefined,
     @Req() req: Request,
@@ -28,7 +28,16 @@ export class ChecklistController {
       throw new BadRequestException('页码必须是 1-100000 的整数');
     }
     if (search && search.length > 80) throw new BadRequestException('搜索内容不能超过 80 字');
-    return this.checklistService.list(req.userContext.userId, pageNumber, search?.trim() ?? '');
+    const result: ChecklistListResponse = await this.checklistService.list(
+      req.userContext.userId, pageNumber, search?.trim() ?? '',
+    );
+    const names: Map<string, string | null> = await this.feishuApiService.getChatNames(
+      result.items.flatMap((record) => record.conversation ? [record.conversation.chatId] : []),
+    );
+    for (const record of result.items) {
+      if (record.conversation) record.conversation.name = names.get(record.conversation.chatId) ?? null;
+    }
+    return result;
   }
 
   @NeedLogin()

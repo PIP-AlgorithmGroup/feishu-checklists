@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { BadGatewayException, BadRequestException, Injectable } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type { Request } from 'express';
 import type { MediaRegistrationInput, MediaRegistrationResponse, JsapiSignResponse } from '../../../shared/api.interface';
 import {
@@ -31,10 +31,10 @@ async function feishuJson(url: string, options: RequestInit): Promise<Record<str
   return payload;
 }
 
-async function getTenantAccessToken(): Promise<string> {
+async function getTenantAccessToken(signal?: AbortSignal): Promise<string> {
   if (tokenCache && tokenCache.expiresAt > Date.now() + 60_000) return tokenCache.value;
   const payload = await feishuJson(TOKEN_URL, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST', signal, headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ app_id: requiredConfig('FEISHU_APP_ID'), app_secret: requiredConfig('FEISHU_APP_SECRET') }),
   });
   tokenCache = { value: payload.tenant_access_token, expiresAt: Date.now() + Number(payload.expire ?? 7200) * 1000 };
@@ -67,6 +67,47 @@ function cleanFileName(value: string): string {
 
 @Injectable()
 export class FeishuApiService {
+  private readonly logger: Logger = new Logger(FeishuApiService.name);
+  private readonly chatNames: Map<string, { name: string | null; expiresAt: number }> = new Map();
+
+  async getChatNames(chatIds: string[]): Promise<Map<string, string | null>> {
+    const result: Map<string, string | null> = new Map();
+    const pending: string[] = [];
+    for (const chatId of new Set(chatIds)) {
+      const cached = this.chatNames.get(chatId);
+      if (cached && cached.expiresAt > Date.now()) result.set(chatId, cached.name);
+      else pending.push(chatId);
+    }
+    if (!pending.length) return result;
+    let token: string;
+    try {
+      token = await getTenantAccessToken(AbortSignal.timeout(3000));
+    } catch (error) {
+      this.logger.warn(`读取所属对话失败：${error instanceof Error ? error.message : '飞书鉴权失败'}`);
+      for (const chatId of pending) result.set(chatId, null);
+      return result;
+    }
+    await Promise.all(pending.map(async (chatId: string) => {
+      let name: string | null = null;
+      try {
+        const payload = await feishuJson(
+          `https://open.feishu.cn/open-apis/im/v1/chats/${encodeURIComponent(chatId)}`,
+          { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(3000) },
+        );
+        name = typeof payload.data?.name === 'string' ? payload.data.name.trim() || null : null;
+      } catch (error) {
+        this.logger.warn(`读取所属对话名称失败：${error instanceof Error ? error.message : '飞书接口失败'}`);
+      }
+      result.set(chatId, name);
+      if (this.chatNames.size >= 100) {
+        const oldest: string | undefined = this.chatNames.keys().next().value;
+        if (oldest) this.chatNames.delete(oldest);
+      }
+      this.chatNames.set(chatId, { name, expiresAt: Date.now() + (name ? 300000 : 30000) });
+    }));
+    return result;
+  }
+
   async sign(pageUrl: string): Promise<JsapiSignResponse> {
     try {
       const appId: string = requiredConfig('MIAODA_APP_ID');

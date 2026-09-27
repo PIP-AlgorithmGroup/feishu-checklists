@@ -36,6 +36,11 @@ export interface ChecklistRecord extends ChecklistDraft {
   createdAt: string;
   updatedAt: string;
   boundToMessage: boolean;
+  conversation: {
+    chatId: string;
+    name: string | null;
+    url: string;
+  } | null;
 }
 
 export interface ChecklistListResponse {

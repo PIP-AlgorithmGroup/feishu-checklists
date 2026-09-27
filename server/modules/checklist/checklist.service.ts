@@ -40,6 +40,10 @@ export class ChecklistService {
         ...parseStoredChecklist({ id: row.checklistKey, title: row.title, items: row.items }),
         createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
         boundToMessage: Boolean(row.openMessageId),
+        conversation: row.openChatId ? {
+          chatId: row.openChatId, name: null,
+          url: `https://applink.feishu.cn/client/chat/open?openChatId=${encodeURIComponent(row.openChatId)}`,
+        } : null,
       })),
       total: totals[0].total, page, pageSize,
     };

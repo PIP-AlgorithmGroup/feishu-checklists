@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { isAxiosError } from 'axios';
 import { authClient } from '@lark-apaas/client-toolkit/auth';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Plus, RefreshCw, Search } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react';
 import { listChecklists } from '@/api';
 import type { ChecklistItem, ChecklistListResponse, ChecklistRecord } from '@shared/api.interface';
 import { Button } from '@/components/ui/button';
@@ -79,6 +79,13 @@ const ChecklistManagement: React.FC = () => {
               <div className="min-w-0 flex-1 basis-56">
                 <button className="break-words text-left font-medium hover:underline" onClick={() => setSelectedId(record.id)}>{record.title}</button>
                 <p className="mt-2 text-xs text-muted-foreground">更新于 {formatDate(record.updatedAt)}</p>
+                <div className="mt-2 flex min-w-0 items-start gap-2 text-sm text-muted-foreground">
+                  <MessageSquare className="mt-0.5 size-4 shrink-0" />
+                  {record.conversation ? <a href={record.conversation.url} target="_blank" rel="noreferrer"
+                    className="min-w-0 break-words text-primary hover:underline" title="打开所属飞书对话">
+                    所属对话：{record.conversation.name ?? `名称暂不可用（${record.conversation.chatId}）`}
+                  </a> : <span>尚未记录所属对话</span>}
+                </div>
               </div>
               <div className="w-40 shrink-0"><p className="mb-2 text-xs">{completed === record.items.length ? '已完成' : '进行中'} · {completed}/{record.items.length} 项</p>
                 <Progress value={completed / record.items.length * 100} /></div>
@@ -99,6 +106,10 @@ const ChecklistManagement: React.FC = () => {
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           {selected && <><DialogHeader><DialogTitle className="pr-6 break-words">{selected.title}</DialogTitle>
             <DialogDescription>创建于 {formatDate(selected.createdAt)} · {selected.boundToMessage ? '已关联飞书消息' : '尚未关联飞书消息'}</DialogDescription></DialogHeader>
+            <p className="break-words text-sm">所属对话：{selected.conversation ?
+              <a className="text-primary hover:underline" href={selected.conversation.url} target="_blank" rel="noreferrer">
+                {selected.conversation.name ?? selected.conversation.chatId}
+              </a> : '尚未记录所属对话'}</p>
             <ol className="divide-y">{selected.items.map((item: ChecklistItem, index: number) => <li key={item.id} className="flex gap-3 py-4">
               <CheckCircle2 className={`mt-1 size-5 shrink-0 ${item.checked ? 'text-green-600' : 'text-muted-foreground'}`} aria-label={item.checked ? '已完成' : '未完成'} />
               <div className="min-w-0"><p className="whitespace-pre-wrap break-words text-sm">{index + 1}. {item.text}</p>
