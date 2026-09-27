@@ -38,6 +38,11 @@ export interface ChecklistMessageBinding {
   openMessageId: string;
 }
 
+export interface ConversationNameInput {
+  chatId: string;
+  name: string;
+}
+
 export interface ChecklistRecord extends ChecklistDraft {
   createdAt: string;
   updatedAt: string;

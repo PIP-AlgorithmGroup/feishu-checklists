@@ -3,6 +3,7 @@ import type {
   ChecklistDraft, ChecklistListResponse, CreateChecklistResponse, JsapiSignResponse,
   MediaRegistrationInput, MediaRegistrationResponse,
   ChecklistMessageBinding,
+  ConversationNameInput,
 } from '@shared/api.interface';
 
 export async function listChecklists(page: number, search: string): Promise<ChecklistListResponse> {
@@ -36,4 +37,8 @@ export async function createChecklist(
 
 export async function bindChecklistMessage(input: ChecklistMessageBinding): Promise<void> {
   await axiosForBackend.post('/api/checklist/message-binding', input);
+}
+
+export async function saveConversationName(input: ConversationNameInput): Promise<void> {
+  await axiosForBackend.post('/api/checklist/conversation-name', input);
 }

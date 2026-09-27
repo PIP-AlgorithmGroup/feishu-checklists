@@ -132,6 +132,7 @@ export const checklist = pgTable("checklist", {
   openMessageId: text("open_message_id"),
   openChatId: text("open_chat_id"),
   version: integer("version").notNull().default(1),
+  conversationName: varchar("conversation_name", { length: 200 }),
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)

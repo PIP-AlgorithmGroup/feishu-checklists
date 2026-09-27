@@ -60,6 +60,13 @@ interface FeishuH5Sdk {
 }
 
 interface FeishuTt {
+  getChatInfo(options: {
+    openChatId: string;
+    chatType: 0;
+    userType: 0;
+    success(result: { name?: string; i18nNames?: { zh_cn?: string; en_us?: string } }): void;
+    fail(error: unknown): void;
+  }): void;
   sendMessageCard(options: {
     triggerCode: string;
     cardContent: unknown;

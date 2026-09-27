@@ -5,6 +5,7 @@ import type {
   ChecklistDraft, ChecklistListResponse, CreateChecklistResponse, JsapiSignResponse,
   MediaRegistrationInput, MediaRegistrationResponse,
   ChecklistMessageBinding,
+  ConversationNameInput,
 } from '../../../shared/api.interface';
 import { parseChecklist } from './checklist';
 import { ChecklistService } from './checklist.service';
@@ -36,7 +37,9 @@ export class ChecklistController {
       result.items.flatMap((record) => record.conversation ? [record.conversation.chatId] : []),
     );
     for (const record of result.items) {
-      if (record.conversation) record.conversation.name = names.get(record.conversation.chatId) ?? null;
+      if (record.conversation) {
+        record.conversation.name = names.get(record.conversation.chatId) ?? record.conversation.name;
+      }
     }
     return result;
   }
@@ -85,5 +88,20 @@ export class ChecklistController {
     };
     await this.checklistService.bindMessage(binding, req.userContext.userId);
     return { bound: true };
+  }
+
+  @NeedLogin()
+  @Post('conversation-name')
+  async saveConversationName(@Body() input: unknown, @Req() req: Request): Promise<{ saved: true }> {
+    if (typeof input !== 'object' || input === null ||
+        !('chatId' in input) || typeof input.chatId !== 'string' ||
+        !/^oc_[a-zA-Z0-9]{1,100}$/.test(input.chatId) ||
+        !('name' in input) || typeof input.name !== 'string' ||
+        !input.name.trim() || input.name.length > 200) {
+      throw new BadRequestException('对话标识或名称无效');
+    }
+    const name: ConversationNameInput = { chatId: input.chatId, name: input.name.trim() };
+    await this.checklistService.saveConversationName(name, req.userContext.userId);
+    return { saved: true };
   }
 }

@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { isAxiosError } from 'axios';
+import { logger } from '@lark-apaas/client-toolkit/logger';
 import { authClient } from '@lark-apaas/client-toolkit/auth';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react';
-import { listChecklists } from '@/api';
+import { getJsapiSign, listChecklists, saveConversationName } from '@/api';
+import { configureConversationReader, readPrivateChatName } from '@/utils/feishu-conversations';
 import type { ChecklistItem, ChecklistListResponse, ChecklistRecord } from '@shared/api.interface';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,7 +41,32 @@ const ChecklistManagement: React.FC = () => {
     setError('');
     setNeedsLogin(false);
     void listChecklists(page, query).then((result: ChecklistListResponse) => {
-      if (active) setData(result);
+      if (!active) return;
+      setData(result);
+      const tt: FeishuTt | undefined = window.tt;
+      const sdk: FeishuH5Sdk | undefined = window.h5sdk;
+      const missing: string[] = [...new Set(result.items.flatMap((record: ChecklistRecord) =>
+        record.conversation && !record.conversation.name ? [record.conversation.chatId] : []))];
+      if (!tt?.getChatInfo || !sdk || !missing.length) return;
+      void (async () => {
+        await configureConversationReader(sdk, await getJsapiSign(window.location.href.split('#')[0]));
+        const names: Map<string, string> = new Map();
+        await Promise.all(missing.map(async (chatId: string) => {
+          const name: string | null = await readPrivateChatName(tt, chatId);
+          if (!name) return;
+          names.set(chatId, name);
+          try {
+            await saveConversationName({ chatId, name });
+          } catch (failure) {
+            logger.warn('保存私聊名称失败', failure);
+          }
+        }));
+        if (active) setData({ ...result, items: result.items.map((record: ChecklistRecord) => ({
+          ...record, conversation: record.conversation ? {
+            ...record.conversation, name: names.get(record.conversation.chatId) ?? record.conversation.name,
+          } : null,
+        })) });
+      })().catch((failure: unknown) => logger.warn('补齐私聊名称失败', failure));
     }).catch((failure: unknown) => {
       if (!active) return;
       if (isAxiosError<{ error?: { message?: string } }>(failure)) {

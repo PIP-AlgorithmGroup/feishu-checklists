@@ -3,8 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, ImagePlus, Plus, Send, Trash2, X } from 'lucide-react';
 import { authClient } from '@lark-apaas/client-toolkit/auth';
 import { toast } from 'sonner';
+import { logger } from '@lark-apaas/client-toolkit/logger';
 import type { ChecklistDraft, ChecklistImage, ChecklistVideo } from '@shared/api.interface';
-import { bindChecklistMessage, createChecklist, getJsapiSign, registerMedia } from '@/api';
+import { bindChecklistMessage, createChecklist, getJsapiSign, registerMedia, saveConversationName } from '@/api';
+import { configureConversationReader, readPrivateChatName } from '@/utils/feishu-conversations';
 import { uploadFile } from '@/components/business-ui/api/files/service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -274,6 +276,16 @@ export default function ChecklistPage() {
               break;
             } catch (error) {
               if (attempt === 2) throw error;
+            }
+          }
+          if (window.tt?.getChatInfo && window.h5sdk) {
+            try {
+              await configureConversationReader(window.h5sdk,
+                await getJsapiSign(window.location.href.split('#')[0]));
+              const name: string | null = await readPrivateChatName(window.tt, binding.openChatId);
+              if (name) await saveConversationName({ chatId: binding.openChatId, name });
+            } catch (error) {
+              logger.warn('保存私聊名称失败', error);
             }
           }
         } catch (error) {

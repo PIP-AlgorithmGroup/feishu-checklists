@@ -12,7 +12,7 @@ const compiled = ts.transpileModule(source, {
 const module = { exports: {} };
 new Function('require', 'module', 'exports', compiled)((id) => {
   if (id === '../../database/schema') return { checklist: {
-    createdBy: 'owner', title: 'title', updatedAt: 'updated', id: 'id',
+    createdBy: 'owner', title: 'title', updatedAt: 'updated', id: 'id', openChatId: 'chat',
   } };
   if (id === './checklist') return { parseStoredChecklist: (record) => record };
   return require(id);
@@ -23,7 +23,7 @@ test('management listing scopes both queries to owner and returns progress with 
   const conditions = [];
   const rows = [{ checklistKey: 'mine', title: 'Inspection', items: [{ id: 'i', checked: true }],
     createdAt: new Date('2026-09-01'), updatedAt: new Date('2026-09-02'), openMessageId: 'message',
-    openChatId: 'oc_example' }];
+    openChatId: 'oc_example', conversationName: '私聊联系人' }];
   const db = { select: (fields) => ({ from: () => ({ where: (condition) => {
     conditions.push(condition);
     if (fields) return Promise.resolve([{ total: 1 }]);
@@ -32,7 +32,7 @@ test('management listing scopes both queries to owner and returns progress with 
   const result = await new ChecklistService(db).list('current-user', 1, 'Inspection');
   assert.deepEqual(result, { items: [{ id: 'mine', title: 'Inspection', items: rows[0].items,
     createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-02T00:00:00.000Z',
-    boundToMessage: true, conversation: { chatId: 'oc_example', name: null,
+    boundToMessage: true, conversation: { chatId: 'oc_example', name: '私聊联系人',
       url: 'https://applink.feishu.cn/client/chat/open?openChatId=oc_example' } }],
     total: 1, page: 1, pageSize: 20 });
   assert.equal(conditions.length, 2);
@@ -94,4 +94,26 @@ test('a callback winning the version race does not overwrite its item changes', 
   };
   await new ChecklistService(db).bindMessage(binding, 'owner');
   assert.equal(reads, 2);
+});
+
+test('saves a private chat name only on the current owners checklists for that chat', async () => {
+  let saved;
+  let condition;
+  const db = { update: () => ({ set: (values) => {
+    saved = values;
+    return { where: (value) => {
+      condition = value;
+      return { returning: async () => [{ id: 'row' }] };
+    } };
+  } }) };
+  await new ChecklistService(db).saveConversationName({ chatId: 'oc_peer', name: '张三' }, 'owner-id');
+  assert.deepEqual(saved, { conversationName: '张三' });
+  assert.match(JSON.stringify(condition), /owner-id/);
+  assert.match(JSON.stringify(condition), /oc_peer/);
+});
+
+test('refuses to save a name if the user owns no checklist in that conversation', async () => {
+  const db = { update: () => ({ set: () => ({ where: () => ({ returning: async () => [] }) }) }) };
+  await assert.rejects(new ChecklistService(db).saveConversationName({ chatId: 'oc_peer', name: '张三' }, 'owner'),
+    /没有属于你的清单/);
 });

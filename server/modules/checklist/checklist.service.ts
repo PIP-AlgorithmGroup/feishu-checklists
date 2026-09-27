@@ -11,6 +11,7 @@ import type {
   ChecklistDraft,
   ChecklistListResponse,
   ChecklistMessageBinding,
+  ConversationNameInput,
   CreateChecklistResponse,
 } from '../../../shared/api.interface';
 import {
@@ -42,7 +43,7 @@ export class ChecklistService {
         createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
         boundToMessage: Boolean(row.openMessageId),
         conversation: row.openChatId ? {
-          chatId: row.openChatId, name: null,
+          chatId: row.openChatId, name: row.conversationName ?? null,
           url: `https://applink.feishu.cn/client/chat/open?openChatId=${encodeURIComponent(row.openChatId)}`,
         } : null,
       })),
@@ -80,6 +81,15 @@ export class ChecklistService {
       }),
       created: false,
     };
+  }
+
+  async saveConversationName(input: ConversationNameInput, userId: string): Promise<void> {
+    if (!userId) throw new UnauthorizedException('请先登录');
+    const updated: { id: string }[] = await this.db.update(checklist)
+      .set({ conversationName: input.name })
+      .where(and(eq(checklist.createdBy, userId), eq(checklist.openChatId, input.chatId)))
+      .returning({ id: checklist.id });
+    if (!updated.length) throw new NotFoundException('该对话没有属于你的清单');
   }
 
   async bindMessage(input: ChecklistMessageBinding, userId: string): Promise<void> {
