@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "./scripts/dev.sh",
+    "dev:windows": "node scripts/dev-windows.cjs",
     "dev:server": "NODE_ENV=development nest start --watch",
     "dev:client": "NODE_ENV=development vite --config vite.config.ts",
     "gen:db-schema": "npx -y @lark-apaas/db-schema-sync@latest --output server/database/schema.ts --export-custom-types",
