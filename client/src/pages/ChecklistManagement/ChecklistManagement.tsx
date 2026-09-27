@@ -123,7 +123,7 @@ const ChecklistManagement: React.FC<ChecklistManagementProps> = ({ admin = false
           disabled={loading} onClick={() => setRevision((value: number) => value + 1)}><RefreshCw /></Button>
       </section>
       {admin && <section aria-label="管理筛选" className="grid gap-3 sm:grid-cols-3">
-        <div className="min-w-0"><UserSelect value={creatorId} placeholder="全部创建人"
+        <div className="min-w-0"><UserSelect triggerType="search" value={creatorId} placeholder="全部创建人"
           onChange={(value: string | null) => { setCreatorId(value); setPage(1); }} /></div>
         <Input aria-label="所属对话" placeholder="对话名称或 ID" maxLength={200} value={conversation}
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => setConversation(event.target.value)} />
