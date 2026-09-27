@@ -70,6 +70,28 @@ export class FeishuApiService {
   private readonly logger: Logger = new Logger(FeishuApiService.name);
   private readonly chatNames: Map<string, { name: string | null; expiresAt: number }> = new Map();
 
+  async downloadImage(imageKey: string): Promise<{ buffer: Buffer; mimeType: string }> {
+    try {
+      const token: string = await getTenantAccessToken(AbortSignal.timeout(10000));
+      const response: Response = await fetch(`${IMAGE_URL}/${encodeURIComponent(imageKey)}`, {
+        headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (Number(response.headers.get('content-length') ?? 0) > MAX_IMAGE_BYTES) {
+        throw new Error('图片超过大小限制');
+      }
+      const buffer: Buffer = Buffer.from(await response.arrayBuffer());
+      // Feishu may return application/octet-stream; verify the actual image signature.
+      const mimeType: string = buffer[0] === 0xff ? 'image/jpeg' :
+        buffer[0] === 0x89 ? 'image/png' : 'image/webp';
+      validateImageBytes(buffer, mimeType);
+      return { buffer, mimeType };
+    } catch (error) {
+      this.logger.warn(`读取清单图片失败：${error instanceof Error ? error.message : '资源读取失败'}`);
+      throw new BadGatewayException('图片暂时无法读取，请重试');
+    }
+  }
+
   async getChatNames(chatIds: string[]): Promise<Map<string, string | null>> {
     const result: Map<string, string | null> = new Map();
     const pending: string[] = [];

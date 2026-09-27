@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Header, Post, Query, Req, StreamableFile } from '@nestjs/common';
 import { CanRole, NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import { CHECKLIST_ADMIN_ROLE } from '../../../shared/api.interface';
 import type { Request } from 'express';
@@ -7,7 +7,7 @@ import type {
   MediaRegistrationInput, MediaRegistrationResponse,
   ChecklistMessageBinding,
   ConversationNameInput,
-  AdminChecklistListResponse, AdminChecklistFilters,
+  AdminChecklistListResponse, AdminChecklistFilters, ChecklistImageRequest,
 } from '../../../shared/api.interface';
 import { parseChecklist } from './checklist';
 import { ChecklistService } from './checklist.service';
@@ -67,6 +67,33 @@ export class ChecklistController {
       }
     }
     return result;
+  }
+
+  @NeedLogin()
+  @Get('image')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
+  async image(@Query() query: ChecklistImageRequest, @Req() req: Request): Promise<StreamableFile> {
+    return this.readImage(query, req.userContext.userId);
+  }
+
+  @NeedLogin()
+  @CanRole([CHECKLIST_ADMIN_ROLE])
+  @Get('admin/image')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
+  async adminImage(@Query() query: ChecklistImageRequest): Promise<StreamableFile> {
+    return this.readImage(query);
+  }
+
+  private async readImage(query: ChecklistImageRequest, userId?: string): Promise<StreamableFile> {
+    if (typeof query.checklistId !== 'string' || !query.checklistId || query.checklistId.length > 100 ||
+        typeof query.imageKey !== 'string' || !query.imageKey || query.imageKey.length > 200) {
+      throw new BadRequestException('清单或图片标识无效');
+    }
+    await this.checklistService.requireImage(query.checklistId, query.imageKey, userId);
+    const image: { buffer: Buffer; mimeType: string } = await this.feishuApiService.downloadImage(query.imageKey);
+    return new StreamableFile(image.buffer, { type: image.mimeType, disposition: 'inline' });
   }
 
   @NeedLogin()

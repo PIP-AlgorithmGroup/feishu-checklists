@@ -150,3 +150,29 @@ test('administrator filters use bound parameters and completion predicates in bo
   assert.equal(queries.every((query) => query.params.includes('%check\\_\\%%')), true);
   assert.equal(queries.every((query) => !query.sql.includes('owner-id')), true);
 });
+
+function imageDatabase(owner, imageKey = 'img_allowed') {
+  return { select: () => ({ from: () => ({ where: async () => [{
+    checklistKey: 'mine', createdBy: owner, title: '检查',
+    createdAt: new Date(), updatedAt: new Date(),
+    items: [{ id: 'item', images: [{ imageKey }] }],
+  }] }) }) };
+}
+
+test('image access permits the owner and only images present in the checklist', async () => {
+  const service = new ChecklistService(imageDatabase('owner'));
+  await service.requireImage('mine', 'img_allowed', 'owner');
+  await assert.rejects(service.requireImage('mine', 'img_unrelated', 'owner'), /图片不存在/);
+});
+
+test('image access rejects another owner and an absent identity', async () => {
+  const service = new ChecklistService(imageDatabase('owner'));
+  await assert.rejects(service.requireImage('mine', 'img_allowed', 'other'), /图片不存在/);
+  await assert.rejects(service.requireImage('mine', 'img_allowed', ''), /请先登录/);
+});
+
+test('administrator image retrieval still requires checklist membership', async () => {
+  const service = new ChecklistService(imageDatabase('other'));
+  await service.requireImage('mine', 'img_allowed');
+  await assert.rejects(service.requireImage('mine', 'img_unrelated'), /图片不存在/);
+});

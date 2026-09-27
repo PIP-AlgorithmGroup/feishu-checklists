@@ -77,6 +77,21 @@ export class ChecklistService {
     };
   }
 
+  async requireImage(checklistId: string, imageKey: string, userId?: string): Promise<void> {
+    if (userId !== undefined && !userId) throw new UnauthorizedException('请先登录');
+    const rows: (typeof checklist.$inferSelect)[] = await this.db.select().from(checklist)
+      .where(and(eq(checklist.checklistKey, checklistId),
+        userId !== undefined ? eq(checklist.createdBy, userId) : undefined));
+    const row: typeof checklist.$inferSelect | undefined = rows[0];
+    if (!row || (userId !== undefined && row.createdBy !== userId)) {
+      throw new NotFoundException('清单图片不存在');
+    }
+    const record: ChecklistRecord = this.toRecord(row);
+    if (!record.items.some((item) => item.images.some((image) => image.imageKey === imageKey))) {
+      throw new NotFoundException('清单图片不存在');
+    }
+  }
+
   async create(draft: ChecklistDraft, userId: string): Promise<CreateChecklistResponse> {
     const inserted: { id: string }[] = await this.db.insert(checklist).values({
       checklistKey: draft.id,

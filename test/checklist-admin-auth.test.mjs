@@ -34,6 +34,25 @@ for (const [label, roles, allowed] of [
     const request = { headers: {}, protocol: 'https', get: () => 'example.com', userContext: { roles } };
     const context = { switchToHttp: () => ({ getRequest: () => request }),
       getHandler: () => ChecklistController.prototype.listAdmin, getClass: () => ChecklistController };
-    assert.equal(await guard.canActivate(context), allowed);
+    for (const handler of ['listAdmin', 'adminImage']) {
+      context.getHandler = () => ChecklistController.prototype[handler];
+      assert.equal(await guard.canActivate(context), allowed);
+    }
   });
 }
+
+test('image controllers authorize before downloading bytes and return an image stream', async () => {
+  const calls = [];
+  const controller = new ChecklistController({
+    requireImage: async (...args) => { calls.push(args); },
+  }, { downloadImage: async () => ({ buffer: Buffer.from('image'), mimeType: 'image/png' }) });
+  const result = await controller.image({ checklistId: 'mine', imageKey: 'img_key' },
+    { userContext: { userId: 'owner' } });
+  assert.deepEqual(calls, [['mine', 'img_key', 'owner']]);
+  assert.equal(result.getHeaders().type, 'image/png');
+});
+
+test('image controller rejects malformed query values without reading resources', async () => {
+  const controller = new ChecklistController({}, {});
+  await assert.rejects(controller.adminImage({ checklistId: ['mine'], imageKey: 'img_key' }), /标识无效/);
+});

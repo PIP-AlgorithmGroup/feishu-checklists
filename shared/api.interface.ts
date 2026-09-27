@@ -6,6 +6,11 @@ export interface ChecklistImage {
   size: number | null;
 }
 
+export interface ChecklistImageRequest {
+  checklistId: string;
+  imageKey: string;
+}
+
 export interface ChecklistVideo {
   fileId: string | null;
   fileKey: string;

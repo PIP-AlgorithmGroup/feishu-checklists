@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import ChecklistImagePreview from './ChecklistImages';
 
 const formatDate = (value: string): string => new Date(value).toLocaleString('zh-CN');
 const completedCount = (record: ChecklistRecord): number =>
@@ -182,7 +183,10 @@ const ChecklistManagement: React.FC<ChecklistManagementProps> = ({ admin = false
             <ol className="divide-y">{selected.items.map((item: ChecklistItem, index: number) => <li key={item.id} className="flex gap-3 py-4">
               <CheckCircle2 className={`mt-1 size-5 shrink-0 ${item.checked ? 'text-green-600' : 'text-muted-foreground'}`} aria-label={item.checked ? '已完成' : '未完成'} />
               <div className="min-w-0"><p className="whitespace-pre-wrap break-words text-sm">{index + 1}. {item.text}</p>
-                {(item.images.length > 0 || item.videos.length > 0) && <p className="mt-2 text-xs text-muted-foreground">{item.images.length} 张图片 · {item.videos.length} 个视频</p>}</div>
+                {item.images.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{item.images.map((image, imageIndex: number) =>
+                  <ChecklistImagePreview key={image.imageKey} checklistId={selected.id} image={image} admin={admin}
+                    label={`事项 ${index + 1} 图片 ${imageIndex + 1}`} />)}</div>}
+                {item.videos.length > 0 && <p className="mt-2 text-xs text-muted-foreground">{item.videos.length} 个视频</p>}</div>
             </li>)}</ol></>}
         </DialogContent>
       </Dialog>

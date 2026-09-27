@@ -5,7 +5,7 @@ import type {
   MediaRegistrationInput, MediaRegistrationResponse,
   ChecklistMessageBinding,
   ConversationNameInput,
-  AdminChecklistFilters, AdminChecklistListResponse,
+  AdminChecklistFilters, AdminChecklistListResponse, ChecklistImageRequest,
 } from '@shared/api.interface';
 
 export async function listChecklists(page: number, search: string): Promise<ChecklistListResponse> {
@@ -13,6 +13,23 @@ export async function listChecklists(page: number, search: string): Promise<Chec
     url: '/api/checklist', method: 'GET', params: { page, search },
   });
   return response.data;
+}
+
+export async function getChecklistImage(input: ChecklistImageRequest, admin: boolean): Promise<Blob> {
+  try {
+    const response = await axiosForBackend<Blob>({
+      url: admin ? '/api/checklist/admin/image' : '/api/checklist/image',
+      method: 'GET', params: input, responseType: 'blob',
+    });
+    if (response.status === 403) throw new Error('没有查看此图片的权限');
+    if (!response.data.type.startsWith('image/')) throw new Error('图片暂时无法读取，请重试');
+    return response.data;
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 403) {
+      throw Object.assign(new Error('没有查看此图片的权限'), { cause: error });
+    }
+    throw error;
+  }
 }
 
 export async function listAdminChecklists(filters: AdminChecklistFilters): Promise<AdminChecklistListResponse> {
