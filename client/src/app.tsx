@@ -5,6 +5,7 @@ import Layout from './components/Layout';
 import NotFound from './pages/NotFound/NotFound';
 import ChecklistPage from './pages/ChecklistPage/ChecklistPage';
 import ChecklistManagement from './pages/ChecklistManagement/ChecklistManagement';
+import ChecklistAdmin from './pages/ChecklistManagement/ChecklistAdmin';
 import { parseTriggerCode } from './pages/ChecklistPage/checklist-utils';
 
 const RoutesComponent = () => {
@@ -13,6 +14,7 @@ const RoutesComponent = () => {
       <Route element={<Layout />}>
         <Route index element={parseTriggerCode(window.location.href) ? <ChecklistPage /> : <ChecklistManagement />} />
         <Route path="manage" element={<ChecklistManagement />} />
+        <Route path="admin" element={<ChecklistAdmin />} />
         <Route path="editor" element={<ChecklistPage />} />
       </Route>
       <Route path="*" element={<NotFound />} />

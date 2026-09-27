@@ -1,9 +1,11 @@
 import { axiosForBackend } from '@lark-apaas/client-toolkit/utils/getAxiosForBackend';
+import { isAxiosError } from 'axios';
 import type {
   ChecklistDraft, ChecklistListResponse, CreateChecklistResponse, JsapiSignResponse,
   MediaRegistrationInput, MediaRegistrationResponse,
   ChecklistMessageBinding,
   ConversationNameInput,
+  AdminChecklistFilters, AdminChecklistListResponse,
 } from '@shared/api.interface';
 
 export async function listChecklists(page: number, search: string): Promise<ChecklistListResponse> {
@@ -11,6 +13,21 @@ export async function listChecklists(page: number, search: string): Promise<Chec
     url: '/api/checklist', method: 'GET', params: { page, search },
   });
   return response.data;
+}
+
+export async function listAdminChecklists(filters: AdminChecklistFilters): Promise<AdminChecklistListResponse> {
+  try {
+    const response = await axiosForBackend<AdminChecklistListResponse>({
+      url: '/api/checklist/admin', method: 'GET', params: filters,
+    });
+    if (response.status === 403) throw new Error('没有清单管理员权限');
+    return response.data;
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 403) {
+      throw Object.assign(new Error('没有清单管理员权限'), { cause: error });
+    }
+    throw error;
+  }
 }
 
 

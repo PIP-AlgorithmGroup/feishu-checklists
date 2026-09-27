@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import ts from 'typescript';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { PgDialect } from 'drizzle-orm/pg-core';
 
 const require = createRequire(import.meta.url);
 const source = readFileSync(new URL('../server/modules/checklist/checklist.service.ts', import.meta.url), 'utf8');
@@ -13,6 +14,7 @@ const module = { exports: {} };
 new Function('require', 'module', 'exports', compiled)((id) => {
   if (id === '../../database/schema') return { checklist: {
     createdBy: 'owner', title: 'title', updatedAt: 'updated', id: 'id', openChatId: 'chat',
+    items: 'items', conversationName: 'conversation_name',
   } };
   if (id === './checklist') return { parseStoredChecklist: (record) => record };
   return require(id);
@@ -116,4 +118,35 @@ test('refuses to save a name if the user owns no checklist in that conversation'
   const db = { update: () => ({ set: () => ({ where: () => ({ returning: async () => [] }) }) }) };
   await assert.rejects(new ChecklistService(db).saveConversationName({ chatId: 'oc_peer', name: '张三' }, 'owner'),
     /没有属于你的清单/);
+});
+
+test('administrator query returns checklists from different creators', async () => {
+  const rows = ['first-owner', 'second-owner'].map((createdBy) => ({
+    checklistKey: createdBy, createdBy, title: '检查', items: [],
+    createdAt: new Date('2026-09-01'), updatedAt: new Date('2026-09-01'),
+  }));
+  const conditions = [];
+  const db = { select: (fields) => ({ from: () => ({ where: (condition) => {
+    conditions.push(condition);
+    return fields ? [{ total: 2 }] : { orderBy: () => ({ limit: () => ({ offset: async () => rows }) }) };
+  } }) }) };
+  const result = await new ChecklistService(db).listAdmin({ page: 1, search: '', creatorId: '',
+    conversation: '', status: 'all' });
+  assert.deepEqual(result.items.map((record) => record.createdBy), ['first-owner', 'second-owner']);
+  assert.equal(conditions.every((condition) => condition === undefined), true);
+});
+
+test('administrator filters use bound parameters and completion predicates in both queries', async () => {
+  const queries = [];
+  const db = { select: (fields) => ({ from: () => ({ where: (condition) => {
+    queries.push(new PgDialect().sqlToQuery(condition));
+    return fields ? [{ total: 0 }] : { orderBy: () => ({ limit: () => ({ offset: async () => [] }) }) };
+  } }) }) };
+  await new ChecklistService(db).listAdmin({ page: 2, search: 'check_%', creatorId: 'owner-id',
+    conversation: 'peer', status: 'completed' });
+  assert.equal(queries.length, 2);
+  assert.equal(queries.every((query) => query.sql.includes('jsonb_array_elements')), true);
+  assert.equal(queries.every((query) => query.params.includes('owner-id')), true);
+  assert.equal(queries.every((query) => query.params.includes('%check\\_\\%%')), true);
+  assert.equal(queries.every((query) => !query.sql.includes('owner-id')), true);
 });

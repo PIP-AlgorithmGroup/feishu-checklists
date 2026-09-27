@@ -61,6 +61,24 @@ export interface ChecklistListResponse {
   pageSize: number;
 }
 
+export const CHECKLIST_ADMIN_ROLE = 'checklist_admin';
+
+export interface AdminChecklistRecord extends ChecklistRecord {
+  createdBy: string | null;
+}
+
+export interface AdminChecklistListResponse extends ChecklistListResponse {
+  items: AdminChecklistRecord[];
+}
+
+export interface AdminChecklistFilters {
+  page: number;
+  search: string;
+  creatorId: string;
+  conversation: string;
+  status: 'all' | 'active' | 'completed';
+}
+
 export interface JsapiSignResponse {
   appId: string;
   timestamp: number;

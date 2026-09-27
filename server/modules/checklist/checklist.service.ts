@@ -5,7 +5,7 @@ import {
   DRIZZLE_DATABASE,
   type PostgresJsDatabase,
 } from '@lark-apaas/fullstack-nestjs-core';
-import { and, count, desc, eq, ilike } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import { checklist } from '../../database/schema';
 import type {
   ChecklistDraft,
@@ -13,6 +13,7 @@ import type {
   ChecklistMessageBinding,
   ConversationNameInput,
   CreateChecklistResponse,
+  ChecklistRecord, AdminChecklistFilters, AdminChecklistListResponse,
 } from '../../../shared/api.interface';
 import {
   type ChecklistEvent,
@@ -38,16 +39,41 @@ export class ChecklistService {
       .where(conditions).orderBy(desc(checklist.updatedAt), desc(checklist.id))
       .limit(pageSize).offset((page - 1) * pageSize);
     return {
-      items: rows.map((row: typeof checklist.$inferSelect) => ({
-        ...parseStoredChecklist({ id: row.checklistKey, title: row.title, items: row.items }),
-        createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
-        boundToMessage: Boolean(row.openMessageId),
-        conversation: row.openChatId ? {
-          chatId: row.openChatId, name: row.conversationName ?? null,
-          url: `https://applink.feishu.cn/client/chat/open?openChatId=${encodeURIComponent(row.openChatId)}`,
-        } : null,
-      })),
+      items: rows.map((row: typeof checklist.$inferSelect) => this.toRecord(row)),
       total: totals[0].total, page, pageSize,
+    };
+  }
+
+  async listAdmin(filters: AdminChecklistFilters): Promise<AdminChecklistListResponse> {
+    const pattern = (value: string): string => `%${value.replace(/[\\%_]/g, '\\$&')}%`;
+    const unfinished = sql`exists (select 1 from jsonb_array_elements(${checklist.items}) as item
+      where item->>'checked' is distinct from 'true')`;
+    const conditions = and(
+      filters.creatorId ? eq(checklist.createdBy, filters.creatorId) : undefined,
+      filters.search ? ilike(checklist.title, pattern(filters.search)) : undefined,
+      filters.conversation ? or(ilike(checklist.conversationName, pattern(filters.conversation)),
+        ilike(checklist.openChatId, pattern(filters.conversation))) : undefined,
+      filters.status === 'active' ? unfinished :
+        filters.status === 'completed' ? sql`not ${unfinished}` : undefined,
+    );
+    const pageSize: number = 20;
+    const totals: { total: number }[] = await this.db.select({ total: count() }).from(checklist).where(conditions);
+    const rows: (typeof checklist.$inferSelect)[] = await this.db.select().from(checklist)
+      .where(conditions).orderBy(desc(checklist.updatedAt), desc(checklist.id))
+      .limit(pageSize).offset((filters.page - 1) * pageSize);
+    return { items: rows.map((row: typeof checklist.$inferSelect) => ({
+      ...this.toRecord(row), createdBy: row.createdBy,
+    })), total: totals[0].total, page: filters.page, pageSize };
+  }
+
+  private toRecord(row: typeof checklist.$inferSelect): ChecklistRecord {
+    return {
+      ...parseStoredChecklist({ id: row.checklistKey, title: row.title, items: row.items }),
+      createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
+      boundToMessage: Boolean(row.openMessageId),
+      conversation: row.openChatId ? { chatId: row.openChatId, name: row.conversationName ?? null,
+        url: `https://applink.feishu.cn/client/chat/open?openChatId=${encodeURIComponent(row.openChatId)}`,
+      } : null,
     };
   }
 

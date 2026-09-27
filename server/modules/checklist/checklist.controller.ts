@@ -1,15 +1,18 @@
 import { BadRequestException, Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
-import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
+import { CanRole, NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
+import { CHECKLIST_ADMIN_ROLE } from '../../../shared/api.interface';
 import type { Request } from 'express';
 import type {
   ChecklistDraft, ChecklistListResponse, CreateChecklistResponse, JsapiSignResponse,
   MediaRegistrationInput, MediaRegistrationResponse,
   ChecklistMessageBinding,
   ConversationNameInput,
+  AdminChecklistListResponse, AdminChecklistFilters,
 } from '../../../shared/api.interface';
 import { parseChecklist } from './checklist';
 import { ChecklistService } from './checklist.service';
 import { FeishuApiService } from './feishu-api';
+import { parseAdminQuery } from './admin-query';
 
 @Controller('api/checklist')
 export class ChecklistController {
@@ -33,6 +36,28 @@ export class ChecklistController {
     const result: ChecklistListResponse = await this.checklistService.list(
       req.userContext.userId, pageNumber, search?.trim() ?? '',
     );
+    const names: Map<string, string | null> = await this.feishuApiService.getChatNames(
+      result.items.flatMap((record) => record.conversation ? [record.conversation.chatId] : []),
+    );
+    for (const record of result.items) {
+      if (record.conversation) {
+        record.conversation.name = names.get(record.conversation.chatId) ?? record.conversation.name;
+      }
+    }
+    return result;
+  }
+
+  @NeedLogin()
+  @CanRole([CHECKLIST_ADMIN_ROLE])
+  @Get('admin')
+  async listAdmin(@Query() query: Record<string, unknown>): Promise<AdminChecklistListResponse> {
+    let filters: AdminChecklistFilters;
+    try {
+      filters = parseAdminQuery(query);
+    } catch (error) {
+      throw new BadRequestException(error instanceof Error ? error.message : '筛选条件无效');
+    }
+    const result: AdminChecklistListResponse = await this.checklistService.listAdmin(filters);
     const names: Map<string, string | null> = await this.feishuApiService.getChatNames(
       result.items.flatMap((record) => record.conversation ? [record.conversation.chatId] : []),
     );
