@@ -28,6 +28,9 @@ export async function getChecklistImage(input: ChecklistImageRequest, admin: boo
     if (isAxiosError(error) && error.response?.status === 403) {
       throw Object.assign(new Error('没有查看此图片的权限'), { cause: error });
     }
+    if (isAxiosError(error) && error.response?.status === 404) {
+      throw Object.assign(new Error('图片不存在或已失效'), { cause: error });
+    }
     throw error;
   }
 }
