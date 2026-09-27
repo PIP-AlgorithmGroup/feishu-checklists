@@ -10,6 +10,7 @@ import { checklist } from '../../database/schema';
 import type {
   ChecklistDraft,
   ChecklistListResponse,
+  ChecklistMessageBinding,
   CreateChecklistResponse,
 } from '../../../shared/api.interface';
 import {
@@ -79,6 +80,28 @@ export class ChecklistService {
       }),
       created: false,
     };
+  }
+
+  async bindMessage(input: ChecklistMessageBinding, userId: string): Promise<void> {
+    if (!userId) throw new UnauthorizedException('请先登录');
+    for (let attempt: number = 0; attempt < 3; attempt++) {
+      const rows: (typeof checklist.$inferSelect)[] = await this.db.select().from(checklist)
+        .where(and(eq(checklist.checklistKey, input.checklistId), eq(checklist.createdBy, userId)));
+      const row: typeof checklist.$inferSelect | undefined = rows[0];
+      if (!row || row.createdBy !== userId) throw new NotFoundException('清单不存在');
+      if ((row.openChatId && row.openChatId !== input.openChatId) ||
+          (row.openMessageId && row.openMessageId !== input.openMessageId)) {
+        throw new ConflictException('清单已关联其他对话或消息');
+      }
+      if (row.openChatId === input.openChatId && row.openMessageId === input.openMessageId) return;
+      const updated: { id: string }[] = await this.db.update(checklist).set({
+        openChatId: input.openChatId, openMessageId: input.openMessageId,
+        version: row.version + 1, updatedAt: new Date(), updatedBy: userId,
+      }).where(and(eq(checklist.id, row.id), eq(checklist.version, row.version),
+        eq(checklist.createdBy, userId))).returning({ id: checklist.id });
+      if (updated.length) return;
+    }
+    throw new ConflictException('清单正在更新，请重试');
   }
 
   async apply(event: ChecklistEvent): Promise<{ duplicate: boolean; checklist: ChecklistDraft }> {

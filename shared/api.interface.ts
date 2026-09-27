@@ -32,6 +32,12 @@ export interface CreateChecklistResponse {
   created: boolean;
 }
 
+export interface ChecklistMessageBinding {
+  checklistId: string;
+  openChatId: string;
+  openMessageId: string;
+}
+
 export interface ChecklistRecord extends ChecklistDraft {
   createdAt: string;
   updatedAt: string;

@@ -1,4 +1,20 @@
-import type { ChecklistDraft, ChecklistItem } from '@shared/api.interface';
+import type { ChecklistDraft, ChecklistItem, ChecklistMessageBinding } from '@shared/api.interface';
+
+export function parseSendReceipt(checklistId: string, result: unknown): ChecklistMessageBinding {
+  if (typeof result !== 'object' || result === null || !('sendCardInfo' in result) ||
+      !Array.isArray(result.sendCardInfo) || result.sendCardInfo.length !== 1) {
+    throw new Error('飞书未返回单条卡片的发送成功回执');
+  }
+  const receipt: unknown = result.sendCardInfo[0];
+  if (typeof receipt !== 'object' || receipt === null || !('status' in receipt) || receipt.status !== 0 ||
+      !('openChatId' in receipt) || typeof receipt.openChatId !== 'string' ||
+      !/^oc_[a-zA-Z0-9]+$/.test(receipt.openChatId) ||
+      !('openMessageId' in receipt) || typeof receipt.openMessageId !== 'string' ||
+      !/^om_[a-zA-Z0-9]+$/.test(receipt.openMessageId)) {
+    throw new Error('飞书卡片发送回执缺少有效的对话或消息标识');
+  }
+  return { checklistId, openChatId: receipt.openChatId, openMessageId: receipt.openMessageId };
+}
 
 export function parseTriggerCode(value: string): string | null {
   const raw: string | null = new URL(value).searchParams.get('bdp_launch_query');

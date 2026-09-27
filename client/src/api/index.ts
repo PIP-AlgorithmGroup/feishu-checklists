@@ -2,6 +2,7 @@ import { axiosForBackend } from '@lark-apaas/client-toolkit/utils/getAxiosForBac
 import type {
   ChecklistDraft, ChecklistListResponse, CreateChecklistResponse, JsapiSignResponse,
   MediaRegistrationInput, MediaRegistrationResponse,
+  ChecklistMessageBinding,
 } from '@shared/api.interface';
 
 export async function listChecklists(page: number, search: string): Promise<ChecklistListResponse> {
@@ -31,4 +32,8 @@ export async function createChecklist(
 ): Promise<CreateChecklistResponse> {
   const response = await axiosForBackend.post<CreateChecklistResponse>('/api/checklist', input);
   return response.data;
+}
+
+export async function bindChecklistMessage(input: ChecklistMessageBinding): Promise<void> {
+  await axiosForBackend.post('/api/checklist/message-binding', input);
 }

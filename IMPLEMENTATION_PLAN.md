@@ -1,29 +1,17 @@
-## Stage 1: Integrate Miaoda scaffold into this repository
-**Goal**: Create a full_stack app, inspect its generated project, and incorporate its platform baseline into develop/miaoda-migration without replacing this GitHub repository.
-**Success Criteria**: This directory contains the real .spark metadata and platform scaffold; its Git history can fast-forward the Miaoda sprint/default branch without force-push.
-**Tests**: Run the generated project's build/typecheck and the existing domain tests.
+## Stage 1: Confirm failures
+**Goal**: Identify missing conversation binding and name lookup failure.
+**Success Criteria**: Actual online errors and official send receipt documented.
+**Tests**: Online logs and official API contract.
 **Status**: Complete
 
-## Stage 2: Port backend and data contracts
-**Goal**: Implement Feishu authentication, card callback, transactional checklist persistence, and media transfer using the platform's documented SDKs.
-**Success Criteria**: No CloudBase runtime dependency; callback identity, idempotency, binding, and media validation are covered by tests.
-**Tests**: Backend unit/integration tests and platform typecheck/build.
+## Stage 2: Persist send receipts
+**Goal**: Bind successful sends immediately with owner checks and conflict protection.
+**Success Criteria**: New sent cards expose conversation without a callback.
+**Tests**: Receipt parsing, ownership, conflict, retry and callback compatibility.
+**Status**: Complete
+
+## Stage 3: Verify and publish
+**Goal**: Deploy validated binding fix and verify names after permission activation.
+**Success Criteria**: Build and tests pass, release finished, names verified or permission blocker stated.
+**Tests**: Typecheck, lint, tests, build, release status and online logs.
 **Status**: In Progress
-
-Dev database, authenticated creation, conditional single-row event updates, and callback/card pure logic are in place. All 13 legacy checklists and 24 processed events are migrated and reconciled online. The real Feishu app now sends `card.action.trigger` to Miaoda, and both encrypted challenge verification and a migrated-event idempotency replay have passed. App credentials are configured in Miaoda online without being stored in the repository. JSAPI signing and media transfer remain in progress.
-
-Resolved callback failure: the public Feishu callback runs with the database `anon` role. The checklist table previously permitted `anon` reads but not updates, so every versioned update affected zero rows and was misreported as a concurrency conflict. Release `7687588611010137358` adds and deploys an update-only RLS policy for `anon`; a real Feishu checkbox click remains the acceptance gate.
-
-## Stage 3: Port the editor and file workflow
-**Goal**: Restore the side-panel editor, image compression, per-file progress, and current-chat card sending against the Miaoda APIs.
-**Success Criteria**: Desktop/mobile editor behavior matches the archived baseline; browser upload does not expose server credentials or permit arbitrary server-side URL fetching.
-**Tests**: Frontend tests, build, and browser verification.
-**Status**: In Progress
-
-## Stage 4: Verify, deploy, migrate, and retire CloudBase
-**Goal**: Validate real Feishu callbacks and 30 MB MP4 transfer, migrate existing data, then switch the Feishu entry points and retire CloudBase resources.
-**Success Criteria**: Real two-user card updates work within 3 seconds; migrated records/media reconcile; rollback is possible before old resources are deleted.
-**Tests**: End-to-end acceptance on desktop/mobile, migration reconciliation, online logs/metrics.
-**Status**: In Progress
-
-Legacy data migration and callback cutover are complete. The remaining gates are the Feishu side-panel entry switch, real card/media acceptance, and explicit user confirmation before deleting CloudBase resources.

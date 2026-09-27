@@ -83,7 +83,7 @@ const ChecklistManagement: React.FC = () => {
                   <MessageSquare className="mt-0.5 size-4 shrink-0" />
                   {record.conversation ? <a href={record.conversation.url} target="_blank" rel="noreferrer"
                     className="min-w-0 break-words text-primary hover:underline" title="打开所属飞书对话">
-                    所属对话：{record.conversation.name ?? `名称暂不可用（${record.conversation.chatId}）`}
+                    所属对话：{record.conversation.name ?? `飞书未返回对话名称（${record.conversation.chatId}）`}
                   </a> : <span>尚未记录所属对话</span>}
                 </div>
               </div>

@@ -42,3 +42,56 @@ test('management listing scopes both queries to owner and returns progress with 
 test('management listing refuses an absent identity before querying', async () => {
   await assert.rejects(new ChecklistService({}).list('', 1, ''), /请先登录/);
 });
+
+const binding = { checklistId: 'mine', openChatId: 'oc_example', openMessageId: 'om_example' };
+function bindingDatabase(row, onUpdate = () => {}) {
+  return {
+    select: () => ({ from: () => ({ where: async () => row ? [row] : [] }) }),
+    update: () => ({ set: (values) => {
+      onUpdate(values);
+      return { where: () => ({ returning: async () => [{ id: 'row' }] }) };
+    } }),
+  };
+}
+
+test('persists the send receipt immediately and advances callback concurrency version', async () => {
+  let saved;
+  await new ChecklistService(bindingDatabase({ id: 'row', createdBy: 'owner', version: 2 },
+    (values) => { saved = values; })).bindMessage(binding, 'owner');
+  assert.equal(saved.openChatId, 'oc_example');
+  assert.equal(saved.openMessageId, 'om_example');
+  assert.equal(saved.version, 3);
+});
+
+test('rejects another owner and conflicting conversation or message', async () => {
+  for (const row of [{ createdBy: 'other' }, { createdBy: 'owner', openChatId: 'oc_other' },
+    { createdBy: 'owner', openMessageId: 'om_other' }]) {
+    await assert.rejects(new ChecklistService(bindingDatabase(row)).bindMessage(binding, 'owner'));
+  }
+});
+
+test('a repeated receipt after binding or a checkbox callback is idempotent', async () => {
+  const row = { createdBy: 'owner', openChatId: binding.openChatId, openMessageId: binding.openMessageId };
+  await new ChecklistService(bindingDatabase(row, () => assert.fail('must not update')))
+    .bindMessage(binding, 'owner');
+});
+
+test('message binding rejects missing identity and an absent checklist', async () => {
+  await assert.rejects(new ChecklistService({}).bindMessage(binding, ''), /请先登录/);
+  await assert.rejects(new ChecklistService(bindingDatabase(null)).bindMessage(binding, 'owner'), /清单不存在/);
+});
+
+test('a callback winning the version race does not overwrite its item changes', async () => {
+  let reads = 0;
+  const db = {
+    select: () => ({ from: () => ({ where: async () => ++reads === 1
+      ? [{ id: 'row', createdBy: 'owner', version: 1 }]
+      : [{ id: 'row', createdBy: 'owner', version: 2, ...binding }] }) }),
+    update: () => ({ set: (values) => {
+      assert.equal('items' in values, false);
+      return { where: () => ({ returning: async () => [] }) };
+    } }),
+  };
+  await new ChecklistService(db).bindMessage(binding, 'owner');
+  assert.equal(reads, 2);
+});

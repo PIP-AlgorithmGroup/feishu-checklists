@@ -4,14 +4,14 @@ import { ChevronDown, ChevronUp, ImagePlus, Plus, Send, Trash2, X } from 'lucide
 import { authClient } from '@lark-apaas/client-toolkit/auth';
 import { toast } from 'sonner';
 import type { ChecklistDraft, ChecklistImage, ChecklistVideo } from '@shared/api.interface';
-import { createChecklist, getJsapiSign, registerMedia } from '@/api';
+import { bindChecklistMessage, createChecklist, getJsapiSign, registerMedia } from '@/api';
 import { uploadFile } from '@/components/business-ui/api/files/service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  buildCardContent, getSafeLoginReturnUrl, needsMiaodaLogin, parseTriggerCode,
+  buildCardContent, getSafeLoginReturnUrl, needsMiaodaLogin, parseSendReceipt, parseTriggerCode,
 } from './checklist-utils';
 import './checklist-page.css';
 
@@ -82,9 +82,9 @@ async function configureFeishu(): Promise<boolean> {
   return true;
 }
 
-async function sendMessageCard(triggerCode: string, cardContent: unknown): Promise<void> {
-  await new Promise<void>((resolve, reject) => window.tt!.sendMessageCard({
-    triggerCode, cardContent, success: () => resolve(), fail: reject,
+async function sendMessageCard(triggerCode: string, cardContent: unknown): Promise<unknown> {
+  return new Promise<unknown>((resolve, reject) => window.tt!.sendMessageCard({
+    triggerCode, cardContent, success: resolve, fail: reject,
   }));
 }
 
@@ -264,7 +264,24 @@ export default function ChecklistPage() {
     setStatus('正在保存并发送');
     try {
       await createChecklist(draft);
-      if (triggerCode) await sendMessageCard(triggerCode, cardContent);
+      if (triggerCode) {
+        const receipt: unknown = await sendMessageCard(triggerCode, cardContent);
+        try {
+          const binding = parseSendReceipt(draft.id, receipt);
+          for (let attempt: number = 0; attempt < 3; attempt++) {
+            try {
+              await bindChecklistMessage(binding);
+              break;
+            } catch (error) {
+              if (attempt === 2) throw error;
+            }
+          }
+        } catch (error) {
+          setStatus('卡片已发送，所属对话记录失败');
+          toast.warning(`卡片已发送，请勿重复发送。所属对话记录失败：${errorMessage(error)}`);
+          return;
+        }
+      }
       setStatus(triggerCode ? '清单已发送' : '清单已保存');
       toast.success(triggerCode ? '清单已发送到当前会话' : '清单已保存');
       if (!triggerCode) navigate('/manage');

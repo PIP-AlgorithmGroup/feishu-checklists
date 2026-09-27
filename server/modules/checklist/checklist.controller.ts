@@ -4,6 +4,7 @@ import type { Request } from 'express';
 import type {
   ChecklistDraft, ChecklistListResponse, CreateChecklistResponse, JsapiSignResponse,
   MediaRegistrationInput, MediaRegistrationResponse,
+  ChecklistMessageBinding,
 } from '../../../shared/api.interface';
 import { parseChecklist } from './checklist';
 import { ChecklistService } from './checklist.service';
@@ -65,5 +66,24 @@ export class ChecklistController {
       throw error;
     }
     return this.checklistService.create(draft, req.userContext.userId);
+  }
+
+  @NeedLogin()
+  @Post('message-binding')
+  async bindMessage(@Body() input: unknown, @Req() req: Request): Promise<{ bound: true }> {
+    if (typeof input !== 'object' || input === null ||
+        !('checklistId' in input) || typeof input.checklistId !== 'string' ||
+        !input.checklistId || input.checklistId.length > 100 ||
+        !('openChatId' in input) || typeof input.openChatId !== 'string' ||
+        !/^oc_[a-zA-Z0-9]{1,100}$/.test(input.openChatId) ||
+        !('openMessageId' in input) || typeof input.openMessageId !== 'string' ||
+        !/^om_[a-zA-Z0-9]{1,100}$/.test(input.openMessageId)) {
+      throw new BadRequestException('发送回执缺少有效的清单、对话或消息标识');
+    }
+    const binding: ChecklistMessageBinding = {
+      checklistId: input.checklistId, openChatId: input.openChatId, openMessageId: input.openMessageId,
+    };
+    await this.checklistService.bindMessage(binding, req.userContext.userId);
+    return { bound: true };
   }
 }
